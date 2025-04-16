@@ -24,13 +24,10 @@ interface HeartBeatController {
 
 
 @RestController
-@RequestMapping(
-    value = ["/heartbeat"],
-    produces = [MediaType.APPLICATION_JSON_VALUE]
-)
+@RequestMapping("/heartbeat")
 class HeartBeatControllerImpl : HeartBeatController {
 
-    @GetMapping("/once")
+    @GetMapping("/once", produces = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(HttpStatus.OK)
     override fun beatOnce(): Mono<HeartBeat> {
         return Mono.just(
@@ -40,7 +37,7 @@ class HeartBeatControllerImpl : HeartBeatController {
         )
     }
 
-    @GetMapping("/forever")
+    @GetMapping("/forever", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     @ResponseStatus(HttpStatus.OK)
     override fun beatForever(@RequestParam(required = false, defaultValue = "1") delay: Int): Flux<ServerSentEvent<HeartBeat>> {
         return Flux.interval(delay.seconds.toJavaDuration())
