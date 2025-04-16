@@ -9,6 +9,8 @@ plugins {
 dependencies {
     api("org.springframework.boot:spring-boot-starter-actuator")
     api("org.springframework.boot:spring-boot-starter-webflux")
+
+    api("com.fasterxml.jackson.module:jackson-module-kotlin")
 }
 
 extensions.configure<JavaPluginExtension>("java") {
