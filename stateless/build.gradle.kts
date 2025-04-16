@@ -6,7 +6,4 @@ plugins {
 
 dependencies {
     implementation(project(":heartbeat"))
-
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
 }
