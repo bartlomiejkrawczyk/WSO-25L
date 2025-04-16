@@ -1,4 +1,4 @@
-package pl.edu.pw.ia.stateless.application
+package pl.edu.pw.ia.heartbeat.application
 
 data class ValueWrapper<T>(
     val value: T,
