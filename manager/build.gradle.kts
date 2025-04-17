@@ -8,4 +8,5 @@ dependencies {
     implementation(project(":heartbeat"))
 
     implementation("org.libvirt:libvirt:0.5.2")
+    implementation("com.sun.jna:jna:3.0.9")
 }
