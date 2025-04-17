@@ -8,22 +8,21 @@ data class IoResult(
     val stdErr: InputStream,
 )
 
-fun List<String>.runCommand(
-    workingDir: File = File("."),
-    environment: Map<String, String>? = null,
-    input: InputStream? = null,
-): Result<IoResult> {
-    val command = this.joinToString(separator = " ") { "'$it'" }
-    return command.runCommand(workingDir, environment, input)
-}
-
 fun String.runCommand(
     workingDir: File = File("."),
     environment: Map<String, String>? = null,
     input: InputStream? = null,
-): Result<IoResult> = runCatching {
+): Result<IoResult> {
     val command = "\\s".toRegex().split(this)
-    val builder = ProcessBuilder(command)
+    return command.runCommand(workingDir, environment, input)
+}
+
+fun List<String>.runCommand(
+    workingDir: File = File("."),
+    environment: Map<String, String>? = null,
+    input: InputStream? = null,
+): Result<IoResult> = runCatching {
+    val builder = ProcessBuilder(this)
         .directory(workingDir)
         .redirectOutput(ProcessBuilder.Redirect.PIPE)
         .redirectError(ProcessBuilder.Redirect.PIPE)
