@@ -4,8 +4,8 @@ import java.io.File
 import java.io.InputStream
 
 data class IoResult(
-    val stdOut: InputStream,
-    val stdErr: InputStream,
+    val stdOut: String,
+    val stdErr: String,
 )
 
 fun String.runCommand(
@@ -34,6 +34,9 @@ fun List<String>.runCommand(
 
     input?.transferTo(process.outputStream)
 
+    val stdOutReader = process.inputStream.bufferedReader()
+    val stdErrReader = process.errorStream.bufferedReader()
+
     val returnCode = process.waitFor()
 
     if (returnCode != 0) {
@@ -41,7 +44,7 @@ fun List<String>.runCommand(
     }
 
     return@runCatching IoResult(
-        stdOut = process.inputStream,
-        stdErr = process.errorStream,
+        stdOut = stdOutReader.readText(),
+        stdErr = stdErrReader.readText(),
     )
 }
