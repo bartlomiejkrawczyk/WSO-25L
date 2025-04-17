@@ -8,7 +8,7 @@ class CommandLineExtension
 
 private val logger = getLogger(CommandLineExtension::class.java)
 
-data class IoResult(
+data class CommandLineResult(
     val stdOut: String,
     val stdErr: String,
 )
@@ -18,7 +18,7 @@ fun String.runCommand(
     environment: Map<String, String>? = null,
     input: InputStream? = null,
     checked: Boolean = true,
-): Result<IoResult> {
+): Result<CommandLineResult> {
     val command = "\\s".toRegex().split(this)
     return command.runCommand(workingDir, environment, input, checked)
 }
@@ -28,7 +28,7 @@ fun List<String>.runCommand(
     environment: Map<String, String>? = null,
     input: InputStream? = null,
     checked: Boolean = true,
-): Result<IoResult> = runCatching {
+): Result<CommandLineResult> = runCatching {
     val builder = ProcessBuilder(this)
         .directory(workingDir)
         .redirectOutput(ProcessBuilder.Redirect.PIPE)
@@ -50,7 +50,7 @@ fun List<String>.runCommand(
         error("Command failed with code $returnCode")
     }
 
-    return@runCatching IoResult(
+    return@runCatching CommandLineResult(
         stdOut = stdOutReader.readText(),
         stdErr = stdErrReader.readText(),
     )
