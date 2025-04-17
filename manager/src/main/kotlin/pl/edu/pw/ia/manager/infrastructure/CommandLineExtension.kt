@@ -8,7 +8,7 @@ class CommandLineExtension
 
 private val logger = getLogger(CommandLineExtension::class.java)
 
-data class CommandLineResult(
+data class CommandLineOutput(
     val stdOut: String,
     val stdErr: String,
 )
@@ -18,7 +18,7 @@ fun String.runCommand(
     environment: Map<String, String>? = null,
     input: InputStream? = null,
     checked: Boolean = true,
-): Result<CommandLineResult> {
+): Result<CommandLineOutput> {
     val command = "\\s".toRegex().split(this)
     return command.runCommand(workingDir, environment, input, checked)
 }
@@ -28,7 +28,7 @@ fun List<String>.runCommand(
     environment: Map<String, String>? = null,
     input: InputStream? = null,
     checked: Boolean = true,
-): Result<CommandLineResult> = runCatching {
+): Result<CommandLineOutput> = runCatching {
     val builder = ProcessBuilder(this)
         .directory(workingDir)
         .redirectOutput(ProcessBuilder.Redirect.PIPE)
@@ -46,14 +46,14 @@ fun List<String>.runCommand(
 
     val returnCode = process.waitFor()
 
+    val stdOut = stdOutReader.readText()
+    val stdErr = stdErrReader.readText()
+
     if (returnCode != 0) {
-        error("Command failed with code $returnCode")
+        error("Command failed with code: $returnCode\nStandard Output: $stdOut\nError: $stdErr")
     }
 
-    return@runCatching CommandLineResult(
-        stdOut = stdOutReader.readText(),
-        stdErr = stdErrReader.readText(),
-    )
+    return@runCatching CommandLineOutput(stdOut = stdOut, stdErr = stdErr)
 }
     .onFailure { exc ->
         logger.error("Execution for command: ${this.joinToString(separator = " ")} failed", exc)
