@@ -5,6 +5,7 @@ import org.libvirt.Connect
 import org.springframework.stereotype.Service
 import pl.edu.pw.ia.heartbeat.infrastructure.logger
 import pl.edu.pw.ia.manager.domain.VirtualMachineManager
+import pl.edu.pw.ia.manager.domain.model.Address
 import pl.edu.pw.ia.manager.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
@@ -46,40 +47,11 @@ class VirtualMachineManagerImpl(
     }
 
     private fun setupMachine(config: VirtualMachineConfig) {
-        @Language("XML")
-        val xmlConfig = """
-            <domain type='kvm'>
-                <name>${config.name}</name>
-                <memory unit='MiB'>512</memory>
-                <vcpu>1</vcpu>
-                <os>
-                    <type arch='x86_64' machine='pc-i440fx-2.9'>hvm</type>
-                    <boot dev='hd'/>
-                </os>
-                <devices>
-                    <disk type='file' device='disk'>
-                        <driver name='qemu' type='qcow2'/>
-                        <source file='$IMAGES_DIRECTORY/${config.name}.qcow2'/>
-                        <target dev='vda' bus='virtio'/>
-                        <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
-                    </disk>
-                    <interface type='bridge'>
-                        <source bridge='virbr0'/>
-                        <model type='virtio'/>
-                        <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
-                    </interface>
-                    <graphics type='vnc' port='-1' listen='0.0.0.0'/>
-                    <channel type='unix'>
-                        <target type='virtio' name='org.qemu.guest_agent.0'/>
-                    </channel>
-                </devices>
-            </domain>
-        """.trimIndent()
-
+        val xmlConfig = VirtualMachineConfigHelper.kvmConfiguration(config)
         val domain = connect.domainCreateXML(xmlConfig, 0)
 
         // TODO: handle infinite loop
-        while (domain.isActive == 0) {
+        while (domain.isActive == VM_INACTIVE) {
             sleep(1000)
         }
 
@@ -111,11 +83,33 @@ class VirtualMachineManagerImpl(
     }
 
     override fun deleteVirtualMachine(name: VirtualMachineName) {
-        TODO("Not yet implemented")
+        try {
+            val domain = connect.domainLookupByName(name.value)
+
+            domain.destroy()
+
+            val imagePath = Path("$IMAGES_DIRECTORY/${name.value}.qcow2")
+            Files.deleteIfExists(imagePath)
+        } catch (exception: Exception) {
+            error("Failed to delete VM: ${exception.message}")
+        }
     }
 
     override fun findIp(name: VirtualMachineName): IpAddress? {
-        TODO("Not yet implemented")
+        @Language("Shell Script")
+        val command = """
+            virsh domifaddr $name --source agent
+        """.trimIndent()
+
+        val cliResult = command.runCommand()
+            .getOrElse {
+                logger.warn("Failed to get IP address for VM ${name.value}", it)
+                return null
+            }
+
+        val match = IP_REGEX.find(cliResult.stdOut)
+
+        return match?.value?.let(::IpAddress)
     }
 
     private fun runAnsiblePlaybook(
@@ -123,7 +117,6 @@ class VirtualMachineManagerImpl(
         ipAddress: IpAddress,
         configuration: Map<String, String> = mapOf(),
     ) {
-
         val variables = configuration.entries.joinToString(separator = " ") { (key, value) -> "$key=$value" }
 
         @Language("Shell Script")
@@ -134,8 +127,20 @@ class VirtualMachineManagerImpl(
         command.runCommand().onFailure { exc -> throw exc }
     }
 
+    private fun updateNginxConfig(
+        workers: List<Address>,
+    ) {
+        @Language("Nginx Configuration")
+        val nginxConfig = VirtualMachineConfigHelper.nginxConfiguration(workers)
+    }
+
     companion object {
         const val IMAGES_DIRECTORY: String = "./images"
         const val PLAYBOOK_DIRECTORY: String = "./ansible"
+
+        const val VM_IS_RUNNING: Int = 1
+        const val VM_INACTIVE: Int = 0
+
+        val IP_REGEX = """\b(\d{1,3}(?:\.\d{1,3}){3})\b""".toRegex()
     }
 }
