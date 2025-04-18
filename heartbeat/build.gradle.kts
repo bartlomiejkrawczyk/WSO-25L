@@ -11,6 +11,7 @@ dependencies {
     api("org.springframework.boot:spring-boot-starter-webflux")
 
     api("com.fasterxml.jackson.module:jackson-module-kotlin")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 }
 
 extensions.configure<JavaPluginExtension>("java") {
