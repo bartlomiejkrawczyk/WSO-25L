@@ -164,6 +164,7 @@ Dwa laptopy z systemem Ubuntu w tej samej sieci wifi.
 <!-- narzędzia, oprogramowanie: jaki wirtualizator, jakie dodatkowe pakiety, ew. jak -->
 
 - Wirtualizator: KVM
+- Obraz: Alpine Linux - Virtual
 - Serwisy: Spring w kotlinie
 - Zarządzanie konfiguracją maszyn: Ansible
 - Skrypty testowe: Bash
