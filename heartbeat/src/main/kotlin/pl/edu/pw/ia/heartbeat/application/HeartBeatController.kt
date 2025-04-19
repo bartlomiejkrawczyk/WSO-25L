@@ -1,5 +1,8 @@
 package pl.edu.pw.ia.heartbeat.application
 
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.codec.ServerSentEvent
@@ -15,10 +18,18 @@ import reactor.core.publisher.Mono
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
+@Tag(name = "Heart Beat")
+@ApiResponse(
+    responseCode = "500",
+    description = "Internal Server Error."
+)
+@ApiResponse(responseCode = "200", description = "OK.")
 interface HeartBeatController {
 
+    @Operation(summary = "Return current status")
     fun beatOnce(): Mono<HeartBeat>
 
+    @Operation(summary = "Constantly send updates about current status")
     fun beatForever(delay: Int): Flux<ServerSentEvent<HeartBeat>>
 }
 

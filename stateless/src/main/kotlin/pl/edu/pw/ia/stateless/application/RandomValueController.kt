@@ -1,5 +1,8 @@
 package pl.edu.pw.ia.stateless.application
 
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
@@ -11,12 +14,21 @@ import pl.edu.pw.ia.heartbeat.application.ValueWrapper
 import reactor.core.publisher.Mono
 import kotlin.random.Random
 
+@Tag(name = "Random")
+@ApiResponse(
+    responseCode = "500",
+    description = "Internal Server Error."
+)
+@ApiResponse(responseCode = "200", description = "OK.")
 interface RandomValueController {
 
-    fun generateRandomBoolean(trueProbability: Double = 0.5): Mono<ValueWrapper<Boolean>>
+    @Operation(summary = "Return boolean with given probability")
+    fun generateRandomBoolean(probability: Double = 0.5): Mono<ValueWrapper<Boolean>>
 
+    @Operation(summary = "Return random number. Numbers are distributed uniformly")
     fun generateRandomNumber(from: Int = 0, to: Int = 100): Mono<ValueWrapper<Int>>
 
+    @Operation(summary = "Return random floating point number. Numbers are distributed uniformly")
     fun generateRandomFloatingPoint(from: Double = 0.0, to: Double = 1.0): Mono<ValueWrapper<Double>>
 }
 
@@ -29,9 +41,9 @@ class RandomValueControllerImpl(
     @GetMapping("/boolean")
     @ResponseStatus(HttpStatus.OK)
     override fun generateRandomBoolean(
-        @RequestParam(required = false, defaultValue = "0.5") trueProbability: Double
+        @RequestParam(required = false, defaultValue = "0.5") probability: Double
     ): Mono<ValueWrapper<Boolean>> =
-        Mono.just(random.nextDouble() < trueProbability).map(::ValueWrapper)
+        Mono.just(random.nextDouble() < probability).map(::ValueWrapper)
 
     @GetMapping("/number")
     @ResponseStatus(HttpStatus.OK)
