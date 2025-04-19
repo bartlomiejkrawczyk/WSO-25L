@@ -4,6 +4,11 @@ data class Address(
     val ip: IpAddress,
     val port: Port,
 ) {
+    constructor(url: String) : this(
+        ip = IpAddress(url.substringAfter("://").substringBefore(":")),
+        port = Port(url.substringAfterLast(":").toInt()),
+    )
+
     fun toUrl(): String = "http://$ip:$port"
 }
 
