@@ -24,7 +24,6 @@ class LoadBalancer(
 enum class VirtualMachineType {
     STATELESS,
     LOAD_BALANCER,
-    MANAGER, // TODO: reconsider this one
 }
 
 @JvmInline
