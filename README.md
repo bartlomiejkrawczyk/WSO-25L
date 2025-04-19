@@ -137,17 +137,23 @@ flowchart LR
 
 <!-- – Ryzyko: jakie przewidujecie problemy, jakie metody poradzenia sobie z nimi -->
 
-- Maszyna z serwisem bezstanowym umiera:
+- Maszyna / serwis z serwisem bezstanowym umiera:
 
 Menadżer przez cały czas działa serwisu utrzymuje połączenie heartbeat, serwis co jakiś czas wysyła wiadomość zwrotną o treści: `data: {"status": "OK"}` sygnalizującą poprawne działanie serwisu. Jeśli menadżer nie wykryje przez określony czas połączenia, kilkukrotnie próbuje nawiązanie połączenia, jeśli się to nie uda to usuwamy taką maszynę i menadżer stawia nową maszynę w jej miejsce.
 
 Adres ip nowej maszyny jest taki sam jak adres ip starej maszyny. W przypadku błędnej odpowiedzi serwera, odpytuje kolejną maszynę (proxy_next_upstream error).
 
-- Maszyna z load balancerem umiera
+- Maszyna / serwis z load balancerem umiera:
 
 Heartbeat w ramach load balancera działa podobnie jak w serwisie bezstanowym
 
 Mamy jeden publiczny adres ip, który jest na starcie przypisany do jednego menadżera, jeśli menadżer ma problem ze swoim load balancerem, to mianuje drugiego menadżera głównym i przypisuje do niego publiczny adres ip, a nasz load balancer wyłączamy i próbujemy postawić na nowo z innym adresem ip.
+
+- Serwis z managerem umiera:
+
+Coś bardzo złego się dzieje na naszym serwerze.
+Jako, że jest to projekt studencki zakładamy w takich wypadkach interwencję administratora.
+Zamiast zabezpeczać się przed tymi sytuacjami.
 
 ## Sprzet
 <!-- sprzęt: np. 2 laptopy -->
