@@ -12,6 +12,8 @@ dependencies {
 
     api("com.fasterxml.jackson.module:jackson-module-kotlin")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+
+    api("org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.6")
 }
 
 extensions.configure<JavaPluginExtension>("java") {
