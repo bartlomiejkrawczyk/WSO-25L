@@ -1,4 +1,3 @@
-
 ---
 title: "Wirtualne Sieci Obliczeniowe"
 author: Bartłomiej Krawczyk, Mateusz Brzozowski
