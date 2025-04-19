@@ -1,6 +1,7 @@
 package pl.edu.pw.ia.manager.infrastructure
 
 import pl.edu.pw.ia.heartbeat.domain.HeartBeatListener
+import pl.edu.pw.ia.heartbeat.infrastructure.HeartBeatListenerImpl
 import pl.edu.pw.ia.heartbeat.infrastructure.logger
 import pl.edu.pw.ia.manager.domain.VirtualMachineManager
 import pl.edu.pw.ia.manager.domain.VmLifecycleHandler
@@ -15,7 +16,7 @@ import kotlin.time.toJavaDuration
 class VmLifecycleHandlerImpl(
     override val config: VirtualMachineConfig,
     private val manager: VirtualMachineManager,
-    private val heartBeatListener: HeartBeatListener,
+    private val heartBeatListener: HeartBeatListener = HeartBeatListenerImpl(config.address),
 ) : VmLifecycleHandler {
 
     private val logger = logger()
