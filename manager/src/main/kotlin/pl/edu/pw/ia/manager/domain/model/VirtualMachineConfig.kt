@@ -1,5 +1,7 @@
 package pl.edu.pw.ia.manager.domain.model
 
+import pl.edu.pw.ia.heartbeat.domain.model.Address
+
 sealed interface VirtualMachineConfig {
     val name: VirtualMachineName
     val address: Address

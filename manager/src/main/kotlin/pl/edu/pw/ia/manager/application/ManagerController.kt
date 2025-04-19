@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 import pl.edu.pw.ia.heartbeat.application.ValueWrapper
 import pl.edu.pw.ia.manager.domain.OrchestrationManager
 import pl.edu.pw.ia.manager.domain.model.CreateMachine
-import pl.edu.pw.ia.manager.domain.model.IpAddress
+import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 import reactor.core.publisher.Mono
 

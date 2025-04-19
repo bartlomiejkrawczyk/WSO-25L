@@ -5,8 +5,8 @@ import org.libvirt.Connect
 import org.springframework.stereotype.Service
 import pl.edu.pw.ia.heartbeat.infrastructure.logger
 import pl.edu.pw.ia.manager.domain.VirtualMachineManager
-import pl.edu.pw.ia.manager.domain.model.Address
-import pl.edu.pw.ia.manager.domain.model.IpAddress
+import pl.edu.pw.ia.heartbeat.domain.model.Address
+import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 import pl.edu.pw.ia.manager.infrastructure.util.VirtualMachineConfigHelper

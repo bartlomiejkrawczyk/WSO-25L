@@ -1,7 +1,7 @@
 package pl.edu.pw.ia.manager.domain
 
 import pl.edu.pw.ia.manager.domain.model.CreateMachine
-import pl.edu.pw.ia.manager.domain.model.IpAddress
+import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 
 interface OrchestrationManager {

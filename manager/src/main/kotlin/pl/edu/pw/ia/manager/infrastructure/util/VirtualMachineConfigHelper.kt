@@ -1,7 +1,7 @@
 package pl.edu.pw.ia.manager.infrastructure.util
 
 import org.intellij.lang.annotations.Language
-import pl.edu.pw.ia.manager.domain.model.Address
+import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.infrastructure.VirtualMachineManagerImpl.Companion.IMAGES_DIRECTORY
 
