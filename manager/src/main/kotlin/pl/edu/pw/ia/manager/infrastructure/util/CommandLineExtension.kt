@@ -1,4 +1,4 @@
-package pl.edu.pw.ia.manager.infrastructure
+package pl.edu.pw.ia.manager.infrastructure.util
 
 import pl.edu.pw.ia.heartbeat.infrastructure.getLogger
 import java.io.File

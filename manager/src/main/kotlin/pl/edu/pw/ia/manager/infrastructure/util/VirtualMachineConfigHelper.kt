@@ -1,4 +1,4 @@
-package pl.edu.pw.ia.manager.infrastructure
+package pl.edu.pw.ia.manager.infrastructure.util
 
 import org.intellij.lang.annotations.Language
 import pl.edu.pw.ia.manager.domain.model.Address

@@ -9,6 +9,8 @@ import pl.edu.pw.ia.manager.domain.model.Address
 import pl.edu.pw.ia.manager.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
+import pl.edu.pw.ia.manager.infrastructure.util.VirtualMachineConfigHelper
+import pl.edu.pw.ia.manager.infrastructure.util.runCommand
 import java.lang.Thread.sleep
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
