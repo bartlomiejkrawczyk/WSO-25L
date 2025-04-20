@@ -8,5 +8,6 @@ import pl.edu.pw.ia.heartbeat.domain.model.Address
 @ConfigurationProperties(prefix = "application")
 data class ApplicationConfiguration(
     var managers: Collection<Address> = emptyList(),
-    var publicIp: Address? = null,
+    var publicAddress: Address? = null,
+    var availableAddresses: Collection<Address> = emptyList(),
 )
