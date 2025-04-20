@@ -154,6 +154,10 @@ Coś bardzo złego się dzieje na naszym serwerze.
 Jako, że jest to projekt studencki zakładamy w takich wypadkach interwencję administratora.
 Zamiast zabezpeczać się przed tymi sytuacjami.
 
+- Kolizja adresów ip:
+
+Każdy manager ma przypisaną własną unikalną pulę adresów ip do przypisania do maszyn.
+
 ## Sprzet
 <!-- sprzęt: np. 2 laptopy -->
 
