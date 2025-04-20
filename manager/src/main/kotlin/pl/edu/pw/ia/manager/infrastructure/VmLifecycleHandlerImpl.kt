@@ -14,19 +14,34 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
 class VmLifecycleHandlerImpl(
-    override val config: VirtualMachineConfig,
+    initialConfig: VirtualMachineConfig,
     private val manager: VirtualMachineManager,
-    private val heartBeatListener: HeartBeatListener = HeartBeatListenerImpl(config.address),
+    private var heartBeatListener: HeartBeatListener = HeartBeatListenerImpl(initialConfig.address),
 ) : VmLifecycleHandler {
 
     private val logger = logger()
     private var disposable: Disposable? = null
-//    private val mutex: Mutex = Mutex() // TODO: add mutex support to prevent inconsistent vm management
+
+    override var config: VirtualMachineConfig = initialConfig
+        set(value) {
+            val previousAddress = config.address
+            if (value.address != previousAddress) {
+                disposable?.dispose()
+                manager.updateVirtualMachine(value)
+                heartBeatListener = HeartBeatListenerImpl(value.address)
+                disposable = startListener()
+            } else {
+                manager.updateVirtualMachine(value)
+            }
+        }
 
     override fun createVirtualMachine() {
         manager.createVirtualMachine(config)
+        disposable = startListener()
+    }
 
-        disposable = heartBeatListener.listenForHeartBeat(delay = 1.seconds)
+    private fun startListener(): Disposable {
+        return heartBeatListener.listenForHeartBeat(delay = 1.seconds)
             .timeout(2.seconds.toJavaDuration())
             .retryWhen(
                 Retry.backoff(3, 100.milliseconds.toJavaDuration())

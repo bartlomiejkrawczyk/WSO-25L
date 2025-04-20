@@ -4,7 +4,7 @@ import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 
 interface VmLifecycleHandler {
 
-    val config: VirtualMachineConfig
+    var config: VirtualMachineConfig
 
     fun createVirtualMachine()
 

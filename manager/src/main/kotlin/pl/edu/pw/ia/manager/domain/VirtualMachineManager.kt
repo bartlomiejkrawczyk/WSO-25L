@@ -6,9 +6,13 @@ import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 
 interface VirtualMachineManager {
 
+    fun deleteAllVirtualMachines()
+
     fun listAvailableVirtualMachines(): Collection<VirtualMachineConfig>
 
     fun createVirtualMachine(config: VirtualMachineConfig)
+
+    fun updateVirtualMachine(config: VirtualMachineConfig)
 
     fun deleteVirtualMachine(name: VirtualMachineName)
 

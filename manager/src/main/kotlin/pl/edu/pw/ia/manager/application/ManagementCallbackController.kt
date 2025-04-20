@@ -49,5 +49,6 @@ class ManagementCallbackControllerImpl(
     @ResponseStatus(HttpStatus.OK)
     override fun configurationChanged(@RequestParam manager: Address, @RequestBody configs: Collection<VirtualMachineConfig>) {
         remoteManagersView.registerConfigurationChanged(manager, configs)
+        orchestrationManager.registerConfigurationChanged(manager, configs)
     }
 }

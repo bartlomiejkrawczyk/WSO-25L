@@ -3,10 +3,10 @@ package pl.edu.pw.ia.manager.infrastructure
 import org.intellij.lang.annotations.Language
 import org.libvirt.Connect
 import org.springframework.stereotype.Service
-import pl.edu.pw.ia.heartbeat.infrastructure.logger
-import pl.edu.pw.ia.manager.domain.VirtualMachineManager
 import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
+import pl.edu.pw.ia.heartbeat.infrastructure.logger
+import pl.edu.pw.ia.manager.domain.VirtualMachineManager
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 import pl.edu.pw.ia.manager.infrastructure.util.VirtualMachineConfigHelper
@@ -23,9 +23,17 @@ class VirtualMachineManagerImpl(
 
     private val logger = logger()
 
-    override fun listAvailableVirtualMachines(): Collection<VirtualMachineConfig> {
+    override fun deleteAllVirtualMachines() {
         val ids = connect.listDomains()
         val domains = ids.map { id -> connect.domainLookupByID(id) }
+        domains.forEach { domain ->
+            deleteVirtualMachine(VirtualMachineName(domain.name))
+        }
+    }
+
+    override fun listAvailableVirtualMachines(): Collection<VirtualMachineConfig> {
+        val ids = connect.listDomains()
+        val domains = ids.map { id -> connect.domainLookupByID(id).name }
         val configs = domains.map { domain ->
             TODO()
         }
@@ -84,6 +92,10 @@ class VirtualMachineManagerImpl(
 
     }
 
+    override fun updateVirtualMachine(config: VirtualMachineConfig) {
+        TODO("Not yet implemented")
+    }
+
     override fun deleteVirtualMachine(name: VirtualMachineName) {
         try {
             val domain = connect.domainLookupByName(name.value)
@@ -138,7 +150,7 @@ class VirtualMachineManagerImpl(
 
     companion object {
         const val IMAGES_DIRECTORY: String = "./images"
-        const val PLAYBOOK_DIRECTORY: String = "./ansible"
+        const val PLAYBOOK_DIRECTORY: String = "./playbooks"
 
         const val VM_IS_RUNNING: Int = 1
         const val VM_INACTIVE: Int = 0

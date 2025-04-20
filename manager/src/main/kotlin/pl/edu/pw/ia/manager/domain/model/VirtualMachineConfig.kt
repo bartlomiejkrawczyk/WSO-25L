@@ -15,7 +15,7 @@ data class Stateless(
     override val type: VirtualMachineType = VirtualMachineType.STATELESS
 }
 
-class LoadBalancer(
+data class LoadBalancer(
     override val name: VirtualMachineName,
     override val address: Address,
     val workers: Collection<Address>,
