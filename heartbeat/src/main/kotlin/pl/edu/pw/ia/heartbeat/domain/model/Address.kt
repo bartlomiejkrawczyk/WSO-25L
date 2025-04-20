@@ -13,7 +13,15 @@ data class Address(
 }
 
 @JvmInline
-value class IpAddress(val ip: String)
+value class IpAddress(val ip: String) {
+    override fun toString(): String {
+        return ip
+    }
+}
 
 @JvmInline
-value class Port(val value: Int)
+value class Port(val value: Int) {
+    override fun toString(): String {
+        return value.toString()
+    }
+}
