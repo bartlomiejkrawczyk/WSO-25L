@@ -1,4 +1,4 @@
-- name: Configure stateless service
+- name: Configure heartbeat service
   hosts: "{{ ip }}"
   become: yes
   vars:
@@ -8,8 +8,8 @@
     ansible_ssh_pass: root
 
   tasks:
-    - name: Start stateless daemon
+    - name: Start heartbeat daemon
       ansible.builtin.shell: |
-        nohup java -jar /stateless.jar --server.port={{ port }} > stateless.log 2>&1 &
+        nohup java -jar /heartbeat.jar --server.port={{ port }} > heartbeat.log 2>&1 &
       async: 1
       poll: 0

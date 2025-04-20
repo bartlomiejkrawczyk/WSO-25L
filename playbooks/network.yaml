@@ -1,0 +1,21 @@
+- name: Configure network
+  hosts: "{{ current_ip }}"
+  become: yes
+  vars:
+    interface: eth0
+    ansible_become: false
+    ansible_user: root
+    ansible_ssh_pass: root
+
+  tasks:
+    - name: Configure static ip
+      template:
+        src: config/interfaces.j2
+        dest: /etc/network/interfaces
+      notify: Restart networking
+
+  handlers:
+    - name: Restart networking
+      command: /etc/init.d/networking restart
+      async: 1
+      poll: 0
