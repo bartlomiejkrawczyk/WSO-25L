@@ -2,3 +2,5 @@
 .gradle/
 .kotlin/
 build/
+**.iso
+**.qcow2
