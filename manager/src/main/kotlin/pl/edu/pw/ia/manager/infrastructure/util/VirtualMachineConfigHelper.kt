@@ -3,7 +3,7 @@ package pl.edu.pw.ia.manager.infrastructure.util
 import org.intellij.lang.annotations.Language
 import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
-import pl.edu.pw.ia.manager.infrastructure.VirtualMachineManagerImpl.Companion.IMAGES_DIRECTORY
+import pl.edu.pw.ia.manager.infrastructure.VirtualMachineManagerImpl.Companion.TEMP_IMAGES_DIRECTORY
 
 object VirtualMachineConfigHelper {
 
@@ -21,7 +21,7 @@ object VirtualMachineConfigHelper {
                 <devices>
                     <disk type='file' device='disk'>
                         <driver name='qemu' type='qcow2'/>
-                        <source file='$IMAGES_DIRECTORY/${config.name}.qcow2'/>
+                        <source file='$TEMP_IMAGES_DIRECTORY/${config.name}.qcow2'/>
                         <target dev='vda' bus='virtio'/>
                         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
                     </disk>

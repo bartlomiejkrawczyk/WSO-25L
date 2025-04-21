@@ -57,7 +57,7 @@ class VirtualMachineManagerImpl(
 
     private fun prepareImage(config: VirtualMachineConfig) {
         File("$IMAGES_DIRECTORY/${config.type.name.lowercase()}.qcow2").inputStream().use { input ->
-            val targetPath = Path("$IMAGES_DIRECTORY/${config.name}.qcow2")
+            val targetPath = Path("$TEMP_IMAGES_DIRECTORY/${config.name}.qcow2")
             Files.createDirectories(targetPath.parent)
             Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING)
         }
@@ -149,7 +149,7 @@ class VirtualMachineManagerImpl(
         try {
             val domain = connect.domainLookupByName(name.value)
             domain.destroy()
-            val imagePath = Path("$IMAGES_DIRECTORY/${name.value}.qcow2")
+            val imagePath = Path("$TEMP_IMAGES_DIRECTORY/${name.value}.qcow2")
             Files.deleteIfExists(imagePath)
         } catch (exception: Exception) {
             error("Failed to delete VM: ${exception.message}")
@@ -168,9 +168,11 @@ class VirtualMachineManagerImpl(
                 return null
             }
 
-        val match = IP_REGEX.find(cliResult.stdOut)
-
-        return match?.value?.let(::IpAddress)
+        return IP_REGEX.findAll(cliResult.stdOut)
+            .filter { it.value != "127.0.0.1" }
+            .firstOrNull()
+            ?.value
+            ?.let(::IpAddress)
     }
 
     private fun runAnsiblePlaybook(
@@ -189,6 +191,7 @@ class VirtualMachineManagerImpl(
     }
 
     companion object {
+        const val TEMP_IMAGES_DIRECTORY: String = "/tmp/images"
         const val IMAGES_DIRECTORY: String = "./images"
         const val PLAYBOOK_DIRECTORY: String = "./playbooks"
         const val PLAYBOOK_CONFIG_DIRECTORY: String = "./playbooks/config"
