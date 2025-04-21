@@ -39,6 +39,10 @@ Następnie zainstaluj system na głównym dysku (`/dev/vda`) z wykorzystaniem tr
 setup-disk -m sys /dev/vda
 ```
 
+```shell
+WARNING: Erase the above disk(s) and continue (y/n) [n]: y
+```
+
 Po zakończeniu procesu instalacji, wyłącz maszynę wirtualną:
 
 ```shell
@@ -81,7 +85,7 @@ nano /etc/apk/repositories
 Zamień:
 
 ```shell
-/media/cdrom/apks
+#/media/cdrom/apks
 http://dl-cdn.alpinelinux.org/alpine/v3.21/main
 #http://dl-cdn.alpinelinux.org/alpine/v3.21/community
 ```
@@ -89,7 +93,7 @@ http://dl-cdn.alpinelinux.org/alpine/v3.21/main
 na:
 
 ```shell
-/media/cdrom/apks
+#/media/cdrom/apks
 http://dl-cdn.alpinelinux.org/alpine/v3.21/main
 http://dl-cdn.alpinelinux.org/alpine/v3.21/community
 ```
@@ -184,7 +188,24 @@ rc-service sshd start
 Z innej maszyny połącz się z Alpine Linux za pomocą SSH:
 
 ```shell
-ssh root@192.168.122.26
+$ ssh root@192.168.122.26
+The authenticity of host '192.168.122.26 (192.168.122.26)' can't be established.
+ED25519 key fingerprint is SHA256:EMjnkHpSoKWgiz6S6fBAgR4aaKjGxC79sG/oSBUb0oA.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.122.26' (ED25519) to the list of known hosts.
+root@192.168.122.26's password: 
+Welcome to Alpine!
+
+The Alpine Wiki contains a large amount of how-to guides and general
+information about administrating Alpine systems.
+See <https://wiki.alpinelinux.org/>.
+
+You can setup the system with the command: setup-alpine
+
+You may change this message by editing /etc/motd.
+
+alpine:~#
 ```
 
 ---
