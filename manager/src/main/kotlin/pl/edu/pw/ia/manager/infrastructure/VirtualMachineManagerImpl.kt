@@ -71,7 +71,7 @@ class VirtualMachineManagerImpl(
 
         @Language("Shell Script")
         val command = """
-            virsh qemu-agent-command ${config.name} '{"execute": "guest-ping"}'
+            virsh qemu-agent-command ${config.name} {"execute":"guest-ping"}
         """.trimIndent()
 
         Retry.retryUntilSuccess { command.runCommand(checked = false) }
@@ -97,7 +97,7 @@ class VirtualMachineManagerImpl(
         """.trimIndent()
         Retry.retryUntilSuccess(
             interval = 1.seconds,
-            timeout = 20.seconds,
+            timeout = 60.seconds,
         ) {
             ping.runCommand(checked = false)
         }.onFailure {
@@ -180,14 +180,14 @@ class VirtualMachineManagerImpl(
         ipAddress: IpAddress,
         configuration: Map<String, String> = mapOf(),
     ) {
-        val variables = configuration.entries.joinToString(separator = " ") { (key, value) -> "$key=$value" }
+        val variables = configuration.entries.joinToString(separator = " -e ", prefix = "-e ") { (key, value) -> "$key=$value" }
 
         @Language("Shell Script")
         val command = """
-            ansible-playbook -i $ipAddress $PLAYBOOK_DIRECTORY/$playbook -e $variables
+            ansible-playbook -i $ipAddress, $PLAYBOOK_DIRECTORY/$playbook $variables
         """.trimIndent()
 
-        command.runCommand().onFailure { exc -> throw exc }
+        command.runCommand(checked = true, environment = mapOf("ANSIBLE_HOST_KEY_CHECKING" to "false"))
     }
 
     companion object {
