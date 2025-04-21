@@ -8,8 +8,6 @@ interface VirtualMachineManager {
 
     fun deleteAllVirtualMachines()
 
-    fun listAvailableVirtualMachines(): Collection<VirtualMachineConfig>
-
     fun createVirtualMachine(config: VirtualMachineConfig)
 
     fun updateVirtualMachine(config: VirtualMachineConfig)

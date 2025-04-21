@@ -41,7 +41,7 @@ object VirtualMachineConfigHelper {
         return kvmConfig
     }
 
-    fun nginxConfiguration(workers: List<Address>): String {
+    fun nginxConfiguration(workers: Collection<Address>): String {
         val port = workers.map { it.port }.first()
         val ips = workers.map { it.ip }
         val servers = ips.joinToString(separator = "\n\t\t") { ip -> "server $ip;" }

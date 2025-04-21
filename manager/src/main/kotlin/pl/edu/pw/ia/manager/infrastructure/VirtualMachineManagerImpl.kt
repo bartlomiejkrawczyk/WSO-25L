@@ -3,18 +3,21 @@ package pl.edu.pw.ia.manager.infrastructure
 import org.intellij.lang.annotations.Language
 import org.libvirt.Connect
 import org.springframework.stereotype.Service
-import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
 import pl.edu.pw.ia.heartbeat.infrastructure.logger
+import pl.edu.pw.ia.manager.domain.Retry
 import pl.edu.pw.ia.manager.domain.VirtualMachineManager
+import pl.edu.pw.ia.manager.domain.model.LoadBalancer
+import pl.edu.pw.ia.manager.domain.model.Stateless
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 import pl.edu.pw.ia.manager.infrastructure.util.VirtualMachineConfigHelper
 import pl.edu.pw.ia.manager.infrastructure.util.runCommand
-import java.lang.Thread.sleep
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.Path
+import kotlin.time.Duration.Companion.seconds
 
 @Service
 class VirtualMachineManagerImpl(
@@ -31,17 +34,25 @@ class VirtualMachineManagerImpl(
         }
     }
 
-    override fun listAvailableVirtualMachines(): Collection<VirtualMachineConfig> {
-        val ids = connect.listDomains()
-        val domains = ids.map { id -> connect.domainLookupByID(id).name }
-        val configs = domains.map { domain ->
-            TODO()
+    override fun createVirtualMachine(config: VirtualMachineConfig) {
+        prepareImage(config)
+        setupMachine(config)
+        setupNetwork(config)
+
+        when (config) {
+            is Stateless -> startService(config)
+            is LoadBalancer -> {
+                startHeartBeat(config)
+                updateLoadBalancer(config)
+            }
         }
-        TODO()
     }
 
-    override fun createVirtualMachine(config: VirtualMachineConfig) {
-        TODO("Not yet implemented")
+    override fun updateVirtualMachine(config: VirtualMachineConfig) {
+        setupNetwork(config)
+        if (config is LoadBalancer) {
+            updateLoadBalancer(config)
+        }
     }
 
     private fun prepareImage(config: VirtualMachineConfig) {
@@ -60,48 +71,88 @@ class VirtualMachineManagerImpl(
         val xmlConfig = VirtualMachineConfigHelper.kvmConfiguration(config)
         val domain = connect.domainCreateXML(xmlConfig, 0)
 
-        // TODO: handle infinite loop
-        while (domain.isActive == VM_INACTIVE) {
-            sleep(1000)
-        }
+        Retry.retryUntilTrue(interval = 1.seconds) { domain.isActive == VM_IS_RUNNING }
 
         @Language("Shell Script")
         val command = """
             virsh qemu-agent-command ${config.name} '{"execute": "guest-ping"}'
         """.trimIndent()
 
-        // TODO: handle infinite loop
-        var retry = true
-        while (retry) {
-            command.runCommand(checked = false)
-                .onSuccess { result ->
-                    retry = false
-                }
+        Retry.retryUntilSuccess { command.runCommand(checked = false) }
+    }
+
+    private fun setupNetwork(config: VirtualMachineConfig) {
+        val ip = Retry.retryUntilSuccess {
+            runCatching { findIp(config.name) ?: error("Ip not available") }
+        }.getOrThrow()
+
+        runAnsiblePlaybook(
+            playbook = "network.yaml",
+            ipAddress = ip,
+            configuration = mapOf(
+                "current_ip" to ip.toString(),
+                "new_ip" to config.address.ip.toString(),
+            ),
+        )
+
+        @Language("Shell Script")
+        val ping = """
+            ping -c 1 ${config.address.ip}
+        """.trimIndent()
+        Retry.retryUntilSuccess(
+            interval = 1.seconds,
+            timeout = 20.seconds,
+        ) {
+            ping.runCommand(checked = false)
+        }.onFailure {
+            error("IP not reachable")
         }
     }
 
-    private fun awaitNetwork(config: VirtualMachineConfig): IpAddress {
-        // TODO: retry ip
-        // TODO: run ansible playbook with network setup
-        // TODO: setup new ip address from virtual machine config
-        // TODO: ping ip until it responds
-        TODO()
+    private fun startHeartBeat(config: VirtualMachineConfig) {
+        runAnsiblePlaybook(
+            playbook = "heart_beat.yaml",
+            ipAddress = config.address.ip,
+            configuration = mapOf(
+                "ip" to config.address.ip.toString(),
+                "port" to config.address.port.toString(),
+            )
+        )
     }
 
-    private fun startService(config: VirtualMachineConfig) {
+    private fun updateLoadBalancer(config: LoadBalancer) {
+        @Language("Nginx Configuration")
+        val nginxConfig = VirtualMachineConfigHelper.nginxConfiguration(config.workers)
 
+        File("$PLAYBOOK_CONFIG_DIRECTORY/nginx.conf").bufferedWriter()
+            .use { writer ->
+                writer.write(nginxConfig)
+            }
+        runAnsiblePlaybook(
+            playbook = "load_balancer.yaml",
+            ipAddress = config.address.ip,
+            configuration = mapOf(
+                "ip" to config.address.ip.toString(),
+                "port" to config.address.port.toString(),
+            )
+        )
     }
 
-    override fun updateVirtualMachine(config: VirtualMachineConfig) {
-        TODO("Not yet implemented")
+    private fun startService(config: Stateless) {
+        runAnsiblePlaybook(
+            playbook = "stateless.yaml",
+            ipAddress = config.address.ip,
+            configuration = mapOf(
+                "ip" to config.address.ip.toString(),
+                "port" to config.address.port.toString(),
+            )
+        )
     }
 
     override fun deleteVirtualMachine(name: VirtualMachineName) {
         try {
             val domain = connect.domainLookupByName(name.value)
-
             domain.destroy()
-
             val imagePath = Path("$IMAGES_DIRECTORY/${name.value}.qcow2")
             Files.deleteIfExists(imagePath)
         } catch (exception: Exception) {
@@ -141,16 +192,10 @@ class VirtualMachineManagerImpl(
         command.runCommand().onFailure { exc -> throw exc }
     }
 
-    private fun updateNginxConfig(
-        workers: List<Address>,
-    ) {
-        @Language("Nginx Configuration")
-        val nginxConfig = VirtualMachineConfigHelper.nginxConfiguration(workers)
-    }
-
     companion object {
         const val IMAGES_DIRECTORY: String = "./images"
         const val PLAYBOOK_DIRECTORY: String = "./playbooks"
+        const val PLAYBOOK_CONFIG_DIRECTORY: String = "./playbooks/config"
 
         const val VM_IS_RUNNING: Int = 1
         const val VM_INACTIVE: Int = 0
