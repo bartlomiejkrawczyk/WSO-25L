@@ -78,3 +78,9 @@ Po instalacji program można uruchomić poleceniem:
 ```sh
 virt-manager
 ```
+
+### 9. Instalacja bibliotek pomocniczych libvirt
+
+```sh 
+sudo apt-get install libvirt-dev
+```
