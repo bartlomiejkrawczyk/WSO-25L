@@ -6,15 +6,17 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 object Retry {
 
     private val logger = logger()
 
-    suspend fun <T> retryUntilSuccess(
+    // TODO make suspending function
+    fun <T> retryUntilSuccess(
         interval: Duration = 10.seconds,
         timeout: Duration = 3.minutes,
-        block: suspend () -> Result<T>,
+        block: () -> Result<T>,
     ): Result<T> {
         val start = System.currentTimeMillis()
 
@@ -30,9 +32,58 @@ object Retry {
             }
 
             logger.info("Attempt $attempts failed. Retrying in $interval")
-            kotlinx.coroutines.delay(interval)
+            Thread.sleep(interval.toJavaDuration())
+//            kotlinx.coroutines.delay(interval)
         }
 
         return Result.failure(TimeoutException("Retry failed"))
+    }
+
+    fun retryUntilTrue(
+        interval: Duration = 10.seconds,
+        timeout: Duration = 3.minutes,
+        block: () -> Boolean,
+    ) {
+        val start = System.currentTimeMillis()
+
+        var attempts = 0
+
+        while ((System.currentTimeMillis() - start).milliseconds < timeout) {
+            attempts++
+
+            val result = block()
+
+            if (result) {
+                return
+            }
+            logger.info("Attempt $attempts failed. Retrying in $interval")
+            Thread.sleep(interval.toJavaDuration())
+//            kotlinx.coroutines.delay(interval)
+        }
+        error("Retry failed")
+    }
+
+    fun <T> retryUntilNotNull(
+        interval: Duration = 10.seconds,
+        timeout: Duration = 3.minutes,
+        block: () -> T?,
+    ): T {
+        val start = System.currentTimeMillis()
+
+        var attempts = 0
+
+        while ((System.currentTimeMillis() - start).milliseconds < timeout) {
+            attempts++
+
+            val result = block()
+
+            if (result != null) {
+                return result
+            }
+            logger.info("Attempt $attempts failed. Retrying in $interval")
+            Thread.sleep(interval.toJavaDuration())
+//            kotlinx.coroutines.delay(interval)
+        }
+        error("Retry failed")
     }
 }
