@@ -29,4 +29,8 @@ enum class VirtualMachineType {
 }
 
 @JvmInline
-value class VirtualMachineName(val value: String)
+value class VirtualMachineName(val value: String) {
+    override fun toString(): String {
+        return value
+    }
+}
