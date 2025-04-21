@@ -318,3 +318,10 @@ Sprawdź status usługi:
 ```shell
 rc-service qemu-guest-agent status
 ```
+
+
+## 11. Install python (required for ansible fact gathering)
+
+```shell
+apk add python3
+```

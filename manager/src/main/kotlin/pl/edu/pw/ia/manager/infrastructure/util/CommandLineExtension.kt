@@ -19,6 +19,7 @@ fun String.runCommand(
     input: InputStream? = null,
     checked: Boolean = true,
 ): Result<CommandLineOutput> {
+    logger.info("Running command: $this")
     val command = "\\s".toRegex().split(this)
     return command.runCommand(workingDir, environment, input, checked)
 }
