@@ -56,15 +56,11 @@ class VirtualMachineManagerImpl(
     }
 
     private fun prepareImage(config: VirtualMachineConfig) {
-        val inputStream = this::class.java.getResourceAsStream("/images/${config.type.name.lowercase()}.qcow2")
-
-        if (inputStream == null) {
-            error("Cannot find image for config $config")
+        File("$IMAGES_DIRECTORY/${config.type.name.lowercase()}.qcow2").inputStream().use { input ->
+            val targetPath = Path("$IMAGES_DIRECTORY/${config.name}.qcow2")
+            Files.createDirectories(targetPath.parent)
+            Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING)
         }
-
-        val targetPath = Path("$IMAGES_DIRECTORY/${config.name}.qcow2")
-        Files.createDirectories(targetPath)
-        Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING)
     }
 
     private fun setupMachine(config: VirtualMachineConfig) {
