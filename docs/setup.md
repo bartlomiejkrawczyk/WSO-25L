@@ -291,3 +291,30 @@ Po wprowadzeniu zmian, zrestartuj konfigurację:
 ```shell
 rc-service nginx reload
 ```
+
+---
+
+## 10. Instalacja i konfiguracja QEMU Guest Agent
+
+QEMU Guest Agent pozwala na lepszą integrację maszyny wirtualnej z hypervisorem (np. Proxmox, libvirt), umożliwiając m.in. bezpieczne wyłączanie systemu, synchronizację czasu, uzyskiwanie informacji o systemie i poprawne przesyłanie danych między hostem a VM.
+
+### Instalacja agenta:
+
+```shell
+apk add qemu-guest-agent
+```
+
+### Dodanie do autostartu i uruchomienie usługi:
+
+```shell
+rc-update add qemu-guest-agent default
+rc-service qemu-guest-agent start
+```
+
+### Weryfikacja działania:
+
+Sprawdź status usługi:
+
+```shell
+rc-service qemu-guest-agent status
+```
