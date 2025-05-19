@@ -4,3 +4,4 @@
 build/
 **.iso
 **.qcow2
+playbooks/config/nginx.conf
