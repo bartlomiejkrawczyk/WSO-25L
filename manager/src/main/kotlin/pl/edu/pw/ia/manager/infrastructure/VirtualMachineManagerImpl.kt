@@ -129,7 +129,6 @@ class VirtualMachineManagerImpl(
             ipAddress = config.address.ip,
             configuration = mapOf(
                 "ip" to config.address.ip.toString(),
-                "port" to config.address.port.toString(),
             )
         )
     }
