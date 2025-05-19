@@ -20,11 +20,11 @@ Aby uruchomić aplikację z wybranym profilem, użyj jednej z poniższych komend
 #### Profil `bk`:
 
 ```shell
-SPRING_PROFILES_ACTIVE=bk ./gradlew bootRun
+SPRING_PROFILES_ACTIVE=bk ./gradlew :manager:bootRun
 ```
 
 #### Profil `mb`:
 
 ```shell
-SPRING_PROFILES_ACTIVE=mb ./gradlew bootRun
+SPRING_PROFILES_ACTIVE=mb ./gradlew :manager:bootRun
 ```
