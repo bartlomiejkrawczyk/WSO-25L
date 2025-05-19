@@ -42,9 +42,12 @@ class VmLifecycleHandlerImpl(
 
     private fun startListener(): Disposable {
         return heartBeatListener.listenForHeartBeat(delay = 1.seconds)
+            .doOnNext { heartBeat ->
+                logger.info("Received heart beat from $config: $heartBeat")
+            }
             .timeout(2.seconds.toJavaDuration())
             .retryWhen(
-                Retry.backoff(3, 100.milliseconds.toJavaDuration())
+                Retry.backoff(5, 500.milliseconds.toJavaDuration())
                     .jitter(0.2)
                     .doAfterRetry { retry ->
                         logger.info("Heart beat retry ${retry.totalRetriesInARow()} for $config")
@@ -56,6 +59,7 @@ class VmLifecycleHandlerImpl(
             }
             .onErrorComplete()
             .subscribeOn(Schedulers.boundedElastic())
+            .delaySubscription(20.seconds.toJavaDuration())
             .subscribe()
     }
 
