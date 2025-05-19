@@ -13,18 +13,24 @@ Użyj polecenia poniżej, aby zainstalować wymagane wersje JDK i narzędzi na p
 sdk env install
 ```
 
-### 2. Uruchomienie aplikacji z określonym profilem
+### 2. Budowanie jara
+
+```shell
+./gradlew manager:bootJar
+```
+
+### 3. Uruchomienie aplikacji z określonym profilem
 
 Aby uruchomić aplikację z wybranym profilem, użyj jednej z poniższych komend:
 
 #### Profil `bk`:
 
 ```shell
-SPRING_PROFILES_ACTIVE=bk ./gradlew :manager:bootRun
+SPRING_PROFILES_ACTIVE=bk java -jar ./manager/build/libs/manager.jar
 ```
 
 #### Profil `mb`:
 
 ```shell
-SPRING_PROFILES_ACTIVE=mb ./gradlew :manager:bootRun
+SPRING_PROFILES_ACTIVE=mb java -jar ./manager/build/libs/manager.jar
 ```
