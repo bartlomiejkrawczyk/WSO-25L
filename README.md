@@ -1,3 +1,4 @@
+
 ---
 title: "Wirtualne Sieci Obliczeniowe"
 author: Bartłomiej Krawczyk, Mateusz Brzozowski
@@ -31,8 +32,11 @@ Automatyzacja zarządzania maszynami wirtualnymi:
 
 <!-- – Scenariusz – doprecyzowanie zadania: jaki problem rozwiązujecie -->
 
-- wiele serwisów bezstanowych, które zwracają losową wartość (bool, int, float, double)
-- całych ruch przechodzi przez load-balancer (nginx), postawiony na oddzielnej maszynie wirtualnej, jeden dla każdego serwera w klastrze
+- Wiele serwisów bezstanowych, które zwracają losową wartość (bool, int, float, double),
+- Cały ruch użytkowników przechodzi przez load balancer (nginx), który jest uruchomiony na oddzielnej maszynie wirtualnej,
+- Jeden load balancer przypisany jest do jednego menadżera,
+- Jeden menadżer zarządza całym klastrem i jest uruchomiony lokalnie na fizycznej maszynie (nie na VM),
+
 
 ```{.mermaid scale=1}
 %%{ init: {
@@ -59,9 +63,10 @@ flowchart LR
     LB(Load Balancer) --> s3(Server 3)
 ```
 
-- na każdym laptopie w naszym klastrze uruchomiony jest daemon manager, który zarządza maszynami wirtualnymi
-- każdy manager posiada endpointy do utworzenia i usuwania maszyny wirtualnej z serwisem bezstanowym, do aktualizacji serwisów z innych menadżerów
-- menadżerzy mają skonfigurowane swoje adresy ip, propagują między sobą informacje o uruchomionych maszynach
+- Na każdym laptopie w naszym klastrze uruchomiony jest daemon manager, który zarządza maszynami wirtualnymi,
+- Każdy manager posiada endpointy do utworzenia i usuwania maszyny wirtualnej z serwisem bezstanowym, do aktualizacji serwisów z innych menadżerów,
+- Menadżerzy znają wzajemnie swoje adresy IP, propagują między sobą informacje o uruchomionych maszynach,
+- Każdy menadżer posiada przypisaną pulę dostępnych lokalnych adresów IP, tak aby unikać kolizji z innymi menadżerami.
 
 ```{.mermaid scale=3}
 %%{ init: {
@@ -140,11 +145,12 @@ flowchart LR
 
 Menadżer przez cały czas działa serwisu utrzymuje połączenie heartbeat, serwis co jakiś czas wysyła wiadomość zwrotną o treści: `data: {"status": "OK"}` sygnalizującą poprawne działanie serwisu. Jeśli menadżer nie wykryje przez określony czas połączenia, kilkukrotnie próbuje nawiązanie połączenia, jeśli się to nie uda to usuwamy taką maszynę i menadżer stawia nową maszynę w jej miejsce.
 
-Adres ip nowej maszyny jest taki sam jak adres ip starej maszyny. W przypadku błędnej odpowiedzi serwera, odpytuje kolejną maszynę (proxy_next_upstream error).
+Adres IP nowej maszyny pozostaje taki sam jak adres usuniętej maszyny.
+W przypadku błędnej odpowiedzi serwisu, load balancer (nginx) automatycznie przekierowuje żądanie do innej dostępnej maszyny, zgodnie z konfiguracją opcji proxy_next_upstream.
 
 - Maszyna / serwis z load balancerem umiera:
 
-Heartbeat w ramach load balancera działa podobnie jak w serwisie bezstanowym
+Heartbeat w ramach load balancera działa podobnie jak w serwisie bezstanowym.
 
 Mamy jeden publiczny adres ip, który jest na starcie przypisany do jednego menadżera, jeśli menadżer ma problem ze swoim load balancerem, to mianuje drugiego menadżera głównym i przypisuje do niego publiczny adres ip, a nasz load balancer wyłączamy i próbujemy postawić na nowo z innym adresem ip.
 
@@ -173,9 +179,10 @@ Dwa laptopy z systemem Ubuntu w tej samej sieci wifi.
 - Zarządzanie konfiguracją maszyn: Ansible
 - Skrypty testowe: Bash
 
+
 ## Plan testów
 
 <!-- plan testów uwzględniający ograniczenia sprzętu -->
 
 Skrypt który odpytuje load balancer, działa z pewnym opóźnieniem, cały czas dopóki nie zostanie zatrzymany.
-W oddzielnej konsoli wyłączymy maszynę bezstanową/ load balancer, podobnie na drugim laptopie i monitorujemy jak zachowuje się serwis, czy wszystkie odpowiedzi zwracane są poprawne.
+W oddzielnej konsoli wyłączymy maszynę bezstanową/load balancer, podobnie na drugim laptopie i monitorujemy jak zachowuje się serwis, czy wszystkie odpowiedzi zwracane są poprawne.
