@@ -29,8 +29,8 @@ class OrchestrationManagerImpl(
     @PostConstruct
     fun initialize() {
         vmManager.deleteAllVirtualMachines()
-        // TODO: write vm config to a file and no startup reload from this config
 
+        createVirtualMachine(request = CreateMachine(name = VirtualMachineName(DEFAULT_STATELESS_NAME)))
         val tempAddress = getNewAddress()
         val config = LoadBalancer(
             name = VirtualMachineName(LOAD_BALANCER_NAME),
@@ -61,7 +61,7 @@ class OrchestrationManagerImpl(
         val handler = VmLifecycleHandlerImpl(
             initialConfig = Stateless(
                 name = name,
-                address = request.address,
+                address = getNewAddress(),
             ),
             manager = vmManager,
         )
@@ -73,11 +73,15 @@ class OrchestrationManagerImpl(
     }
 
     override fun deleteVirtualMachine(name: VirtualMachineName) {
+        // TODO: cannot allow to remove last machine
+        // TODO: cannot allow to create machine if no address available
         val handler = lifecycleHandlers[name]
         if (handler != null) {
             handler.deleteVirtualMachine()
             lifecycleHandlers.remove(name)
+            availableAddresses.add(handler.config.address)
             // TODO: callback to other managers
+            // TODO: update nginx configuration!!!
             return
         }
         remoteManagersView.deleteVirtualMachineView(name)
@@ -119,5 +123,6 @@ class OrchestrationManagerImpl(
 
     companion object {
         const val LOAD_BALANCER_NAME = "load-balancer"
+        const val DEFAULT_STATELESS_NAME = "default"
     }
 }
