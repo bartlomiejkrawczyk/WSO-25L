@@ -1,0 +1,9 @@
+application:
+  managers:
+    - http://192.168.122.122:8080
+  public-address: http://192.168.122.120:8080
+  available-addresses:
+    - http://192.168.122.20:8080
+    - http://192.168.122.21:8080
+    - http://192.168.122.22:8080
+    - http://192.168.122.23:8080
