@@ -21,7 +21,11 @@ fun String.runCommand(
 ): Result<CommandLineOutput> {
     logger.info("Running command: $this")
     val command = "\\s".toRegex().split(this)
-    return command.runCommand(workingDir, environment, input, checked)
+    val output = command.runCommand(workingDir, environment, input, checked)
+    output.onSuccess { cli ->
+        logger.info("> $this\n${cli.stdOut}")
+    }
+    return output
 }
 
 fun List<String>.runCommand(
