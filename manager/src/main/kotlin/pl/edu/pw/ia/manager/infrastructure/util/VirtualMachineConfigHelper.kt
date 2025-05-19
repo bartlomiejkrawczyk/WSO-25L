@@ -42,9 +42,7 @@ object VirtualMachineConfigHelper {
     }
 
     fun nginxConfiguration(workers: Collection<Address>): String {
-        val port = workers.map { it.port }.first()
-        val ips = workers.map { it.ip }
-        val servers = ips.joinToString(separator = "\n\t\t") { ip -> "server $ip;" }
+        val servers = workers.joinToString(separator = "\n\t\t") { worker -> "server ${worker.ip}:${worker.port};" }
 
         @Language("Nginx Configuration")
         val nginxConfig = """
@@ -63,17 +61,14 @@ object VirtualMachineConfigHelper {
             }
             
             http {
-                limit_req_zone ${'$'}binary_remote_addr zone=limit:1m rate=1r/s;
-                
                 upstream workers {
                     $servers
                 }
                 
                 server {
-                    listen $port;
+                    listen 80;
                     
                     location / {
-                        limit_req zone=limit;
                         proxy_pass http://workers;
                         proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
                         proxy_next_upstream_tries 3;
