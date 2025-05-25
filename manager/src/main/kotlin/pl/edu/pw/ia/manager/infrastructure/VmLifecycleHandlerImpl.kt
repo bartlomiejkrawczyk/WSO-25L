@@ -17,23 +17,26 @@ class VmLifecycleHandlerImpl(
     initialConfig: VirtualMachineConfig,
     private val manager: VirtualMachineManager,
     private var heartBeatListener: HeartBeatListener = HeartBeatListenerImpl(initialConfig.address),
+    private val recreationCallback: (() -> Unit)? = null,
 ) : VmLifecycleHandler {
 
     private val logger = logger()
     private var disposable: Disposable? = null
 
     override var config: VirtualMachineConfig = initialConfig
-        set(value) {
-            val previousAddress = config.address
-            if (value.address != previousAddress) {
-                disposable?.dispose()
-                manager.updateVirtualMachine(value)
-                heartBeatListener = HeartBeatListenerImpl(value.address)
-                disposable = startListener()
-            } else {
-                manager.updateVirtualMachine(value)
-            }
+
+    override fun updateConfigAndRecreate(newConfig: VirtualMachineConfig) {
+        val previousAddress = config.address
+        config = newConfig
+        if (config.address != previousAddress) {
+            disposable?.dispose()
+            manager.updateVirtualMachine(config)
+            heartBeatListener = HeartBeatListenerImpl(config.address)
+            disposable = startListener()
+        } else {
+            manager.updateVirtualMachine(config)
         }
+    }
 
     override fun createVirtualMachine() {
         manager.createVirtualMachine(config)
@@ -70,6 +73,7 @@ class VmLifecycleHandlerImpl(
 
     private fun recreateVirtualMachine() {
         deleteVirtualMachine()
+        recreationCallback?.invoke()
         createVirtualMachine()
     }
 }

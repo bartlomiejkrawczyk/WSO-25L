@@ -17,6 +17,7 @@ import pl.edu.pw.ia.manager.domain.OrchestrationManager
 import pl.edu.pw.ia.manager.domain.RemoteManagersView
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @Tag(name = "Callback")
 @ApiResponse(
@@ -31,6 +32,9 @@ interface ManagementCallbackController {
 
     @Operation(summary = "Callback for signalling to other managers vm configuration change")
     fun configurationChanged(manager: Address, configs: Collection<VirtualMachineConfig>)
+
+    @Operation(summary = "Advance the manager to master")
+    fun advanceToMaster(): Mono<Boolean>
 }
 
 @RestController
@@ -50,5 +54,11 @@ class ManagementCallbackControllerImpl(
     override fun configurationChanged(@RequestParam manager: Address, @RequestBody configs: Collection<VirtualMachineConfig>) {
         remoteManagersView.registerConfigurationChanged(manager, configs)
         orchestrationManager.registerConfigurationChanged(manager, configs)
+    }
+
+    @PostMapping("/master")
+    override fun advanceToMaster(): Mono<Boolean> {
+        orchestrationManager.becomeMaster()
+        return Mono.just(true)
     }
 }
