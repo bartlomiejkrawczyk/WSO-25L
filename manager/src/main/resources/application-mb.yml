@@ -2,6 +2,7 @@ application:
   managers:
     - http://192.168.99.122:8080
   public-address: http://192.168.122.120:8080
+  master: false
   available-addresses:
     - http://192.168.122.20:8080
     - http://192.168.122.21:8080

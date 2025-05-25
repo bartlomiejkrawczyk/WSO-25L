@@ -10,4 +10,5 @@ data class ApplicationConfiguration(
     var managers: Collection<Address> = emptyList(),
     var publicAddress: Address? = null,
     var availableAddresses: Collection<Address> = emptyList(),
+    var master: Boolean = false,
 )
