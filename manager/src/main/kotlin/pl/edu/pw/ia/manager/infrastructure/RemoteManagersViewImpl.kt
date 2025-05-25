@@ -14,11 +14,6 @@ class RemoteManagersViewImpl(
 
     private val configurations: MutableMap<Address, Collection<VirtualMachineConfig>> = mutableMapOf()
 
-    override fun deleteVirtualMachineView(virtualMachineName: VirtualMachineName) {
-        TODO("Not yet implemented")
-        // TODO: callback to corresponding manager with delete request
-    }
-
     override fun virtualMachineLocation(name: VirtualMachineName): Address? {
         return configurations.entries
             .flatMap { (manager, configs) -> configs.map { manager to it } }
