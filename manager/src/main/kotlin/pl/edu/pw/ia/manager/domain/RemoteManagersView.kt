@@ -12,5 +12,7 @@ interface RemoteManagersView {
 
     fun listWorkers(): Collection<Address>
 
+    fun signalConfigurationChange(configs: Collection<VirtualMachineConfig>)
+
     fun registerConfigurationChanged(manager: Address, configs: Collection<VirtualMachineConfig>)
 }
