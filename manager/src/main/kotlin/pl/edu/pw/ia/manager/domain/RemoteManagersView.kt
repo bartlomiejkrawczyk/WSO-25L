@@ -6,8 +6,6 @@ import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 
 interface RemoteManagersView {
 
-    fun deleteVirtualMachineView(virtualMachineName: VirtualMachineName)
-
     fun virtualMachineLocation(name: VirtualMachineName): Address?
 
     fun findConfiguration(name: VirtualMachineName): VirtualMachineConfig?
