@@ -12,7 +12,6 @@ object Retry {
 
     private val logger = logger()
 
-    // TODO make suspending function
     fun <T> retryUntilSuccess(
         interval: Duration = 10.seconds,
         timeout: Duration = 3.minutes,
