@@ -34,10 +34,14 @@ class OrchestrationManagerImpl(
 
         createVirtualMachine(request = CreateMachine(name = VirtualMachineName(DEFAULT_STATELESS_NAME)))
 
-        val tempAddress = getNewAddress()
+        val address = if (configuration.master) {
+            configuration.publicAddress!!
+        } else {
+            getNewAddress()
+        }
         val config = LoadBalancer(
             name = VirtualMachineName(LOAD_BALANCER_NAME),
-            address = tempAddress,
+            address = address,
             workers = getWorkers(),
         )
         loadBalancerHandler = VmLifecycleHandlerImpl(
@@ -128,12 +132,14 @@ class OrchestrationManagerImpl(
         configuration.master = true
         val config = loadBalancerHandler.config as LoadBalancer
         val currentAddress = config.address
-        loadBalancerHandler.updateConfigAndRecreate(
-            config.copy(
-                address = configuration.publicAddress!!,
+        if (currentAddress != configuration.publicAddress) {
+            loadBalancerHandler.updateConfigAndRecreate(
+                config.copy(
+                    address = configuration.publicAddress!!,
+                )
             )
-        )
-        availableAddresses.add(currentAddress)
+            availableAddresses.add(currentAddress)
+        }
     }
 
     private fun reloadLoadBalancer() {
