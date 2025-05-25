@@ -31,6 +31,7 @@ class OrchestrationManagerImpl(
         vmManager.deleteAllVirtualMachines()
 
         createVirtualMachine(request = CreateMachine(name = VirtualMachineName(DEFAULT_STATELESS_NAME)))
+
         val tempAddress = getNewAddress()
         val config = LoadBalancer(
             name = VirtualMachineName(LOAD_BALANCER_NAME),
@@ -40,7 +41,7 @@ class OrchestrationManagerImpl(
         loadBalancerHandler = VmLifecycleHandlerImpl(initialConfig = config, manager = vmManager)
         loadBalancerHandler.createVirtualMachine()
 
-        // TODO: on startup ask signal to other managers your workers
+        signalChange()
     }
 
     @PreDestroy
@@ -69,22 +70,23 @@ class OrchestrationManagerImpl(
         handler.createVirtualMachine()
 
         lifecycleHandlers[request.name] = handler
-        // TODO: callback to other managers
+
+        reloadLoadBalancer()
+        signalChange()
     }
 
     override fun deleteVirtualMachine(name: VirtualMachineName) {
-        // TODO: cannot allow to remove last machine
-        // TODO: cannot allow to create machine if no address available
+        if (lifecycleHandlers.size == 1) {
+            return
+        }
         val handler = lifecycleHandlers[name]
         if (handler != null) {
             handler.deleteVirtualMachine()
             lifecycleHandlers.remove(name)
             availableAddresses.add(handler.config.address)
-            // TODO: callback to other managers
-            // TODO: update nginx configuration!!!
-            return
+            reloadLoadBalancer()
+            signalChange()
         }
-        remoteManagersView.deleteVirtualMachineView(name)
     }
 
     override fun findIp(name: VirtualMachineName): IpAddress? {
@@ -105,10 +107,19 @@ class OrchestrationManagerImpl(
         manager: Address,
         configs: Collection<VirtualMachineConfig>
     ) {
+        reloadLoadBalancer()
+    }
+
+    private fun reloadLoadBalancer() {
         val config = loadBalancerHandler.config as LoadBalancer
         loadBalancerHandler.config = config.copy(
             workers = getWorkers(),
         )
+    }
+
+    private fun signalChange() {
+        val workers = lifecycleHandlers.values.map { it.config }
+        remoteManagersView.signalConfigurationChange(workers)
     }
 
     private fun getWorkers(): Collection<Address> {
