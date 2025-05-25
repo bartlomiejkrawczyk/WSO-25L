@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
 import pl.edu.pw.ia.manager.domain.OrchestrationManager
+import pl.edu.pw.ia.manager.domain.RemoteManagerClient
 import pl.edu.pw.ia.manager.domain.RemoteManagersView
 import pl.edu.pw.ia.manager.domain.VirtualMachineManager
 import pl.edu.pw.ia.manager.domain.VmLifecycleHandler
@@ -19,7 +20,8 @@ import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 class OrchestrationManagerImpl(
     private val vmManager: VirtualMachineManager,
     private val remoteManagersView: RemoteManagersView,
-    configuration: ApplicationConfiguration,
+    private val configuration: ApplicationConfiguration,
+    private val managerClient: RemoteManagerClient,
 ) : OrchestrationManager {
 
     private lateinit var loadBalancerHandler: VmLifecycleHandler
@@ -38,7 +40,19 @@ class OrchestrationManagerImpl(
             address = tempAddress,
             workers = getWorkers(),
         )
-        loadBalancerHandler = VmLifecycleHandlerImpl(initialConfig = config, manager = vmManager)
+        loadBalancerHandler = VmLifecycleHandlerImpl(
+            initialConfig = config,
+            manager = vmManager
+        ) {
+            if (configuration.master) {
+                configuration.master = false
+                val config = loadBalancerHandler.config as LoadBalancer
+                loadBalancerHandler.config = config.copy(
+                    address = getNewAddress(),
+                )
+                managerClient.requestNewMaster()
+            }
+        }
         loadBalancerHandler.createVirtualMachine()
 
         signalChange()
@@ -110,10 +124,24 @@ class OrchestrationManagerImpl(
         reloadLoadBalancer()
     }
 
+    override fun becomeMaster() {
+        configuration.master = true
+        val config = loadBalancerHandler.config as LoadBalancer
+        val currentAddress = config.address
+        loadBalancerHandler.updateConfigAndRecreate(
+            config.copy(
+                address = configuration.publicAddress!!,
+            )
+        )
+        availableAddresses.add(currentAddress)
+    }
+
     private fun reloadLoadBalancer() {
         val config = loadBalancerHandler.config as LoadBalancer
-        loadBalancerHandler.config = config.copy(
-            workers = getWorkers(),
+        loadBalancerHandler.updateConfigAndRecreate(
+            config.copy(
+                workers = getWorkers(),
+            )
         )
     }
 

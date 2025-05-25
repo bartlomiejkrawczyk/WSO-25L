@@ -8,4 +8,6 @@ interface RemoteManagerClient {
     fun requestConfiguration(): Map<Address, Collection<VirtualMachineConfig>>
 
     fun signalConfigurationChange(configs: Collection<VirtualMachineConfig>)
+
+    fun requestNewMaster()
 }

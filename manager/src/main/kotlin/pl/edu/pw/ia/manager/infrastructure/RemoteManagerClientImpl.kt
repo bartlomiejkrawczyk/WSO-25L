@@ -49,4 +49,18 @@ class RemoteManagerClientImpl(
                 .retrieve()
         }
     }
+
+    override fun requestNewMaster() {
+        webClients.values.asSequence()
+            .filter { client ->
+                runBlocking {
+                    client.post()
+                        .uri("/callback/master")
+                        .retrieve()
+                        .awaitBodyOrNull<Boolean>()
+                        ?: false
+                }
+            }
+            .first()
+    }
 }

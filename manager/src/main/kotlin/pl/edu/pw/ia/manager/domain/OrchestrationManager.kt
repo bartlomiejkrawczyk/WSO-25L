@@ -17,4 +17,6 @@ interface OrchestrationManager {
     fun findIp(name: VirtualMachineName): IpAddress?
 
     fun registerConfigurationChanged(manager: Address, configs: Collection<VirtualMachineConfig>)
+
+    fun becomeMaster()
 }
