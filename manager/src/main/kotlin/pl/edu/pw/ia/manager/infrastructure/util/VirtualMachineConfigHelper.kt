@@ -26,7 +26,7 @@ object VirtualMachineConfigHelper {
                         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
                     </disk>
                     <interface type='bridge'>
-                        <source bridge='bro0'/>
+                        <source bridge='br0'/>
                         <model type='virtio'/>
                         <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
                     </interface>
