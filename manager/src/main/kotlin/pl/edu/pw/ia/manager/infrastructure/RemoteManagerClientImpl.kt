@@ -1,9 +1,8 @@
 package pl.edu.pw.ia.manager.infrastructure
 
-import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.awaitBodyOrNull
+import org.springframework.web.reactive.function.client.bodyToMono
 import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.manager.application.model.VirtualMachineConfigDTO
 import pl.edu.pw.ia.manager.application.model.toDTO
@@ -23,17 +22,16 @@ class RemoteManagerClientImpl(
         }
 
     override fun requestConfiguration(): Map<Address, Collection<VirtualMachineConfig>> {
-        return runBlocking {
-            webClients.entries.mapNotNull { (address, client) ->
-                client.get()
-                    .uri("/callback")
-                    .retrieve()
-                    .awaitBodyOrNull<Collection<VirtualMachineConfigDTO>>()
-                    ?.map { it.toDomain() }
-                    ?.let { address to it }
-            }
-                .associate { it }
+        return webClients.entries.mapNotNull { (address, client) ->
+            client.get()
+                .uri("/callback")
+                .retrieve()
+                .bodyToMono<Collection<VirtualMachineConfigDTO>>()
+                .block()
+                ?.map { it.toDomain() }
+                ?.let { address to it }
         }
+            .associate { it }
     }
 
     override fun signalConfigurationChange(configs: Collection<VirtualMachineConfig>) {
@@ -53,13 +51,12 @@ class RemoteManagerClientImpl(
     override fun requestNewMaster() {
         webClients.values.asSequence()
             .filter { client ->
-                runBlocking {
-                    client.post()
-                        .uri("/callback/master")
-                        .retrieve()
-                        .awaitBodyOrNull<Boolean>()
-                        ?: false
-                }
+                client.post()
+                    .uri("/callback/master")
+                    .retrieve()
+                    .bodyToMono<Boolean>()
+                    .block()
+                    ?: false
             }
             .first()
     }
