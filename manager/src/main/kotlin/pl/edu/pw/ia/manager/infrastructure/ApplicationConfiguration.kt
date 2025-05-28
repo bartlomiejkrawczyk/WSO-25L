@@ -7,7 +7,7 @@ import pl.edu.pw.ia.heartbeat.domain.model.Address
 @Configuration
 @ConfigurationProperties(prefix = "application")
 data class ApplicationConfiguration(
-    val managerAddress: Address? = null,
+    var managerAddress: Address? = null,
     var managers: Collection<Address> = emptyList(),
     var publicAddress: Address? = null,
     var availableAddresses: Collection<Address> = emptyList(),
