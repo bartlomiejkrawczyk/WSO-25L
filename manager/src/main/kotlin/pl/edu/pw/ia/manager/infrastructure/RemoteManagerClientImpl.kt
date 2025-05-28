@@ -27,6 +27,7 @@ class RemoteManagerClientImpl(
                 .uri("/callback")
                 .retrieve()
                 .bodyToMono<Collection<VirtualMachineConfigDTO>>()
+                .onErrorComplete()
                 .block()
                 ?.map { it.toDomain() }
                 ?.let { address to it }
@@ -55,6 +56,7 @@ class RemoteManagerClientImpl(
                     .uri("/callback/master")
                     .retrieve()
                     .bodyToMono<Boolean>()
+                    .onErrorComplete()
                     .block()
                     ?: false
             }
