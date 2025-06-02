@@ -42,7 +42,7 @@ object VirtualMachineConfigHelper {
     }
 
     fun nginxConfiguration(workers: Collection<Address>): String {
-        val servers = workers.joinToString(separator = "\n\t\t") { worker -> "server ${worker.ip}:${worker.port};" }
+        val servers = workers.joinToString(separator = "\n                  ") { worker -> "server ${worker.ip}:${worker.port};" }
 
         @Language("Nginx Configuration")
         val nginxConfig = """
@@ -69,6 +69,9 @@ object VirtualMachineConfigHelper {
                     listen 80;
                     
                     location / {
+                        proxy_set_header X-Forwarded-Host ${'$'}host;
+                        proxy_set_header X-Forwarded-Server ${'$'}host;
+                        proxy_set_header X-Forwarded-For ${'$'}proxy_add_x_forwarded_for;
                         proxy_pass http://workers;
                         proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
                         proxy_next_upstream_tries 3;
