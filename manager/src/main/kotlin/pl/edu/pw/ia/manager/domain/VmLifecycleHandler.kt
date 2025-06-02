@@ -10,5 +10,5 @@ interface VmLifecycleHandler {
 
     fun createVirtualMachine()
 
-    fun deleteVirtualMachine()
+    fun deleteVirtualMachine(hard: Boolean = true)
 }
