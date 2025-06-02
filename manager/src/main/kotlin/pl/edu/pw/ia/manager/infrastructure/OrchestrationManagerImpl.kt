@@ -32,7 +32,16 @@ class OrchestrationManagerImpl(
     fun initialize() {
         vmManager.deleteAllVirtualMachines()
 
-        createVirtualMachine(request = CreateMachine(name = VirtualMachineName(DEFAULT_STATELESS_NAME)))
+        val defaultServiceName = VirtualMachineName(DEFAULT_STATELESS_NAME)
+        val handler = VmLifecycleHandlerImpl(
+            initialConfig = Stateless(
+                name = defaultServiceName,
+                address = getNewAddress(),
+            ),
+            manager = vmManager,
+        )
+        handler.createVirtualMachine()
+        lifecycleHandlers[defaultServiceName] = handler
 
         val address = if (configuration.master) {
             configuration.publicAddress!!
