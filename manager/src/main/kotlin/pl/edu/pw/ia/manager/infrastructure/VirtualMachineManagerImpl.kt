@@ -82,6 +82,19 @@ class VirtualMachineManagerImpl(
             runCatching { findIp(config.name) ?: error("Ip not available") }
         }.getOrThrow()
 
+        @Language("Shell Script")
+        val initialPing = """
+            ping -c 1 $ip
+        """.trimIndent()
+        Retry.retryUntilSuccess(
+            interval = 1.seconds,
+            timeout = 60.seconds,
+        ) {
+            initialPing.runCommand(checked = false)
+        }.onFailure {
+            error("IP not reachable")
+        }
+
         runAnsiblePlaybook(
             playbook = "network.yaml",
             ipAddress = ip,
