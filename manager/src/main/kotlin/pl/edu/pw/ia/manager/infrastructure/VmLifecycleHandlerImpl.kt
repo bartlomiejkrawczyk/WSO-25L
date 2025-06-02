@@ -50,29 +50,35 @@ class VmLifecycleHandlerImpl(
             }
             .timeout(2.seconds.toJavaDuration())
             .retryWhen(
-                Retry.backoff(5, 500.milliseconds.toJavaDuration())
+                Retry.backoff(4, 500.milliseconds.toJavaDuration())
                     .jitter(0.2)
                     .doAfterRetry { retry ->
                         logger.info("Heart beat retry ${retry.totalRetriesInARow()} for $config")
                     }
             )
-            .doOnError { throwable ->
+            .onErrorComplete { throwable ->
                 logger.error("Retries exhausted or other error occurred", throwable)
                 recreateVirtualMachine()
+                return@onErrorComplete true
             }
-            .onErrorComplete()
             .subscribeOn(Schedulers.boundedElastic())
-            .delaySubscription(20.seconds.toJavaDuration())
+            .delaySubscription(10.seconds.toJavaDuration())
             .subscribe()
     }
 
-    override fun deleteVirtualMachine() {
-        disposable?.dispose()
-        manager.deleteVirtualMachine(config.name)
+    override fun deleteVirtualMachine(hard: Boolean) {
+        if (hard) {
+            disposable?.dispose()
+        }
+        runCatching {
+            manager.deleteVirtualMachine(config.name)
+        }.onFailure {
+            logger.error("Failed to delete VM ${config.name}", it)
+        }
     }
 
     private fun recreateVirtualMachine() {
-        deleteVirtualMachine()
+        deleteVirtualMachine(hard = false)
         recreationCallback?.invoke()
         createVirtualMachine()
     }
