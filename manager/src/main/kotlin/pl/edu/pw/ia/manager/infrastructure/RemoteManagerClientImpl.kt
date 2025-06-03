@@ -41,7 +41,7 @@ class RemoteManagerClientImpl(
                 .uri { builder ->
                     builder
                         .path("/callback")
-                        .queryParam("manager", configuration.managerAddress?.toUrl())
+                        .queryParam("managerUrl", configuration.managerAddress?.toUrl())
                         .build()
                 }
                 .bodyValue(configs.map { it.toDTO() })
