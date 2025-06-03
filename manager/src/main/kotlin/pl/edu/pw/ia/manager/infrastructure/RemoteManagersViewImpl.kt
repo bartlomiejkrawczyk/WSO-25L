@@ -9,6 +9,8 @@ import pl.edu.pw.ia.manager.domain.RemoteManagersView
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineName
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineType
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 @Service
 class RemoteManagersViewImpl(
@@ -19,8 +21,13 @@ class RemoteManagersViewImpl(
 
     @PostConstruct
     fun initialize() {
-        val config = managerClient.requestConfiguration()
-        configurations.putAll(config)
+        Mono.just(this)
+            .map {
+                val config = managerClient.requestConfiguration()
+                configurations.putAll(config)
+            }
+            .subscribeOn(Schedulers.boundedElastic())
+            .subscribe()
     }
 
     @PreDestroy

@@ -79,7 +79,10 @@ class VmLifecycleHandlerImpl(
 
     private fun recreateVirtualMachine() {
         deleteVirtualMachine(hard = false)
+        logger.info("Deleted VM ${config.name}")
         recreationCallback?.invoke()
+        logger.info("Recreating VM ${config.name}")
         createVirtualMachine()
+        logger.info("Recreated VM ${config.name}")
     }
 }

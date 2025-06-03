@@ -48,21 +48,18 @@ class RemoteManagerClientImpl(
                 .retrieve()
                 .bodyToMono<Void>()
                 .onErrorComplete()
-                .block()
+                .subscribe()
         }
     }
 
     override fun requestNewMaster() {
-        webClients.values.asSequence()
-            .filter { client ->
-                client.post()
-                    .uri("/callback/master")
-                    .retrieve()
-                    .bodyToMono<Boolean>()
-                    .onErrorComplete()
-                    .block()
-                    ?: false
-            }
+        webClients.values
             .first()
+            .post()
+            .uri("/callback/master")
+            .retrieve()
+            .bodyToMono<Boolean>()
+            .onErrorComplete() // TODO: on error request other manager
+            .subscribe()
     }
 }

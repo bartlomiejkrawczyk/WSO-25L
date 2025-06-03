@@ -5,6 +5,7 @@ import jakarta.annotation.PreDestroy
 import org.springframework.stereotype.Service
 import pl.edu.pw.ia.heartbeat.domain.model.Address
 import pl.edu.pw.ia.heartbeat.domain.model.IpAddress
+import pl.edu.pw.ia.heartbeat.infrastructure.logger
 import pl.edu.pw.ia.manager.domain.OrchestrationManager
 import pl.edu.pw.ia.manager.domain.RemoteManagerClient
 import pl.edu.pw.ia.manager.domain.RemoteManagersView
@@ -24,6 +25,7 @@ class OrchestrationManagerImpl(
     private val managerClient: RemoteManagerClient,
 ) : OrchestrationManager {
 
+    private val logger = logger()
     private lateinit var loadBalancerHandler: VmLifecycleHandler
     private val lifecycleHandlers: MutableMap<VirtualMachineName, VmLifecycleHandler> = mutableMapOf()
     private val availableAddresses: MutableList<Address> = configuration.availableAddresses.toMutableList()
@@ -58,12 +60,15 @@ class OrchestrationManagerImpl(
             manager = vmManager
         ) {
             if (configuration.master) {
+                logger.info("Becoming secondary")
                 configuration.master = false
                 val config = loadBalancerHandler.config as LoadBalancer
                 loadBalancerHandler.config = config.copy(
                     address = getNewAddress(),
                 )
+                logger.info("Request new master")
                 managerClient.requestNewMaster()
+                logger.info("Request new master succeeded")
             }
         }
         loadBalancerHandler.createVirtualMachine()
