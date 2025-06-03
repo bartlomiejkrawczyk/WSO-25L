@@ -42,7 +42,7 @@ object VirtualMachineConfigHelper {
     }
 
     fun nginxConfiguration(workers: Collection<Address>): String {
-        val servers = workers.joinToString(separator = "\n                  ") { worker -> "server ${worker.ip}:${worker.port};" }
+        val servers = workers.joinToString(separator = "\n                    ") { worker -> "server ${worker.ip}:${worker.port};" }
 
         @Language("Nginx Configuration")
         val nginxConfig = """
