@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import pl.edu.pw.ia.heartbeat.domain.model.Address
+import pl.edu.pw.ia.manager.application.model.VirtualMachineConfigDTO
 import pl.edu.pw.ia.manager.domain.OrchestrationManager
 import pl.edu.pw.ia.manager.domain.RemoteManagersView
 import pl.edu.pw.ia.manager.domain.model.VirtualMachineConfig
@@ -31,7 +32,7 @@ interface ManagementCallbackController {
     fun listVirtualMachines(): Flux<VirtualMachineConfig>
 
     @Operation(summary = "Callback for signalling to other managers vm configuration change")
-    fun configurationChanged(managerUrl: String, configs: Collection<VirtualMachineConfig>)
+    fun configurationChanged(managerUrl: String, configs: Collection<VirtualMachineConfigDTO>)
 
     @Operation(summary = "Advance the manager to master")
     fun advanceToMaster(): Mono<Boolean>
@@ -51,8 +52,9 @@ class ManagementCallbackControllerImpl(
 
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
-    override fun configurationChanged(@RequestParam managerUrl: String, @RequestBody configs: Collection<VirtualMachineConfig>) {
+    override fun configurationChanged(@RequestParam managerUrl: String, @RequestBody configsDTO: Collection<VirtualMachineConfigDTO>) {
         val manager = Address(url = managerUrl)
+        val configs = configsDTO.map { it.toDomain() }
         remoteManagersView.registerConfigurationChanged(manager, configs)
         orchestrationManager.registerConfigurationChanged(manager, configs)
     }
