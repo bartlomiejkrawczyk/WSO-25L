@@ -32,7 +32,7 @@ interface ManagementCallbackController {
     fun listVirtualMachines(): Flux<VirtualMachineConfig>
 
     @Operation(summary = "Callback for signalling to other managers vm configuration change")
-    fun configurationChanged(managerUrl: String, configs: Collection<VirtualMachineConfigDTO>)
+    fun configurationChanged(managerUrl: String, configsDTO: Collection<VirtualMachineConfigDTO>)
 
     @Operation(summary = "Advance the manager to master")
     fun advanceToMaster(): Mono<Boolean>

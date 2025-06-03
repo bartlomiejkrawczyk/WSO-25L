@@ -46,6 +46,9 @@ class RemoteManagerClientImpl(
                 }
                 .bodyValue(configs.map { it.toDTO() })
                 .retrieve()
+                .bodyToMono<Void>()
+                .onErrorComplete()
+                .block()
         }
     }
 
