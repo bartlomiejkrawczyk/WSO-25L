@@ -31,7 +31,7 @@ interface ManagementCallbackController {
     fun listVirtualMachines(): Flux<VirtualMachineConfig>
 
     @Operation(summary = "Callback for signalling to other managers vm configuration change")
-    fun configurationChanged(manager: Address, configs: Collection<VirtualMachineConfig>)
+    fun configurationChanged(managerUrl: String, configs: Collection<VirtualMachineConfig>)
 
     @Operation(summary = "Advance the manager to master")
     fun advanceToMaster(): Mono<Boolean>
@@ -51,7 +51,8 @@ class ManagementCallbackControllerImpl(
 
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
-    override fun configurationChanged(@RequestParam manager: Address, @RequestBody configs: Collection<VirtualMachineConfig>) {
+    override fun configurationChanged(@RequestParam managerUrl: String, @RequestBody configs: Collection<VirtualMachineConfig>) {
+        val manager = Address(url = managerUrl)
         remoteManagersView.registerConfigurationChanged(manager, configs)
         orchestrationManager.registerConfigurationChanged(manager, configs)
     }
