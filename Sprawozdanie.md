@@ -12,7 +12,496 @@ header-includes:
 
 \tableofcontents
 
+# Testowanie ryzyka
+
+## 1. Awaria maszyny z serwisem bezstanowym
+
+Menadżer przez cały czas monitoruje stan serwisów bezstanowych poprzez połączenia typu *heartbeat*. Serwis co jakiś czas przesyła odpowiedź w formacie:
+
+```json
+data: {"status": "OK"}
+```
+
+Brak odpowiedzi w określonym czasie powoduje ponowne próby połączenia. Jeśli po kilku próbach nie uda się nawiązać kontaktu, maszyna zostaje usunięta, a w jej miejsce automatycznie uruchamiana jest nowa instancja. Co ważne – nowa maszyna otrzymuje ten sam adres IP, co poprzednia.
+
+W przypadku błędnej odpowiedzi serwisu, Nginx jako *load balancer* automatycznie przekierowuje żądanie do innego działającego serwisu, zgodnie z konfiguracją `proxy_next_upstream`.
+
+
+### Etapy testu
+
+1. Wymuszenie śmierci maszyny bezstanowej
+
+![Maszyna z serwisem bezstanowym umiera](./docs/img/kill_default.png){ width=50% }
+
+2. Tymczasowy brak maszyny z serwisem bezstanowym
+
+![Chwilowy brak maszyny z serwisem bezstanowym](./docs/img/after_kill_default.png){ width=50% }
+
+3. Obsługa zapytań przez inne serwisy
+
+![Pomimo braku jednej z maszyn, zapytania nadal są obsługiwane](./docs/img/request_on_kill_default.png)
+
+4. Detekcja awarii i uruchomienie nowej instancji
+
+![Wykrycie braku i postawienie nowej maszyny z serwisem bezstanowym](./docs/img/new_default.png){ width=50% }
+
+Log z systemu:
+
+```sh
+2025-06-03T18:32:21.016+02:00  INFO 21744 --- [    parallel-11] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 0 for 
+  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
+2025-06-03T18:32:21.925+02:00  INFO 21744 --- [     parallel-1] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 1 for 
+  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
+2025-06-03T18:32:23.973+02:00  INFO 21744 --- [     parallel-3] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 2 for 
+  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
+2025-06-03T18:32:27.315+02:00  INFO 21744 --- [     parallel-5] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 3 for 
+  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
+2025-06-03T18:32:27.318+02:00 ERROR 21744 --- [or-http-epoll-6] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Retries exhausted or other error occurred
+
+reactor.core.Exceptions$RetryExhaustedException: Retries exhausted: 4/4
+```
+
+Po czterech nieudanych próbach *heartbeat*, uruchamiana jest nowa maszyna.
+
+## 2. Awaria maszyny z load balancerem
+
+Mechanizm *heartbeat* działa również w przypadku load balancera. W systemie dostępny jest jeden publiczny adres IP przypisany do menadżera głównego. Jeśli wykryta zostanie awaria maszyny z LB, menadżer przekazuje adres IP kolejnemu w kolejce i wyłącza uszkodzoną instancję.
+
+### Etapy testu
+
+1. Wymuszenie śmierci maszyny z LB
+
+![Maszyna z load balancerem umiera](./docs/img/kill_lb.png){ width=50% }
+
+2. Tymczasowy brak LB
+
+![Chwilowy brak maszyny z load balancerem](./docs/img/after_kill_lb.png){ width=50% }
+
+Menadżer wykrywa taką sytuację, informuje pozostałych menadżerów o awarii, a następnie wybierany jest nowy główny load balancer, któremu przypisywany jest publiczny adres IP klastra:
+
+```sh
+2025-06-03T18:46:25.042+02:00  INFO 21744 --- [or-http-epoll-5] p.e.p.i.m.i.util.CommandLineExtension    :
+> ansible-playbook -i 192.168.10.25, ./playbooks/network.yaml 
+  -e current_ip=192.168.10.25 -e new_ip=192.168.10.120
+
+PLAY [Configure network] ************************************
+
+TASK [Gathering Facts] **************************************
+ok: [192.168.10.25]
+
+TASK [Configure static ip] **********************************
+changed: [192.168.10.25]
+
+RUNNING HANDLER [Restart networking] ************************
+changed: [192.168.10.25]
+
+PLAY RECAP **************************************************
+192.168.10.25              : ok=3    changed=2    unreachable=0    
+  failed=0    skipped=0    rescued=0    ignored=0
+```
+
+3. Detekcja awarii i start nowej instancji LB z adresem IP z prywatnej puli menadżera
+
+![Wykrycie braku i postawienie nowej maszyny z load balancerem](./docs/img/new_lb.png){ width=50% }
+
+Log z systemu:
+
+```sh
+2025-06-03T18:46:02.429+02:00  INFO 18787 --- [or-http-epoll-9] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Received heart beat from 
+  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
+  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
+  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)]): 
+  HeartBeat(status=OK)
+2025-06-03T18:46:03.129+02:00  INFO 18787 --- [or-http-epoll-6] p.e.p.i.m.i.\
+  VmLifecycleHandlerImpl       : Received heart beat from 
+  Stateless(name=default, address=Address(ip=192.168.10.16, port=8080)): HeartBeat(status=OK)
+...
+2025-06-03T18:46:07.987+02:00  INFO 18787 --- [     parallel-3] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 1 for 
+  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
+  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
+  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)])
+...
+2025-06-03T18:46:18.153+02:00  INFO 18787 --- [     parallel-9] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Heart beat retry 3 for 
+  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
+  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
+  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)])
+...
+2025-06-03T18:46:20.154+02:00 ERROR 18787 --- [     parallel-7] p.e.p.i.m.i.
+  VmLifecycleHandlerImpl       : Retries exhausted or other error occurred
+
+reactor.core.Exceptions$RetryExhaustedException: Retries exhausted: 4/4
+```
+
+System cyklicznie wysyła zapytania heartbeat do maszyny z load balancerem. Po czterech nieudanych próbach nawiązania połączenia, instancja zostaje uznana za niedostępną, a jej proces zostaje zakończony. W jej miejsce automatycznie uruchamiana jest nowa maszyna z load balancerem, tym razem oznaczona jako *secondary*. Proces ten gwarantuje zachowanie ciągłości działania klastra oraz natychmiastowe przywrócenie dostępu do usług publicznych.
+
+
+## 3. Kolizja adresów IP
+
+Każdy menadżer ma przypisaną własną, unikalną pulę adresów IP. Dzięki temu nie dochodzi do kolizji między zarządzanymi przez nich maszynami.
+
+### Konfiguracja menadżera 1:
+
+```yml
+application:
+  manager-address: http://192.168.10.1:8080
+  managers:
+    - http://192.168.10.2:8080
+  public-address: http://192.168.10.120:8080
+  master: true
+  available-addresses:
+    - http://192.168.10.10:8080
+    - http://192.168.10.11:8080
+    - http://192.168.10.12:8080
+    - http://192.168.10.13:8080
+    - http://192.168.10.14:8080
+    - http://192.168.10.15:8080
+    - http://192.168.10.16:8080
+```
+
+### Konfiguracja menadżera 2:
+
+```yml
+application:
+  manager-address: http://192.168.10.2:8080
+  managers:
+    - http://192.168.10.1:8080
+  public-address: http://192.168.10.120:8080
+  master: false
+  available-addresses:
+    - http://192.168.10.20:8080
+    - http://192.168.10.21:8080
+    - http://192.168.10.22:8080
+    - http://192.168.10.23:8080
+    - http://192.168.10.24:8080
+    - http://192.168.10.25:8080
+    - http://192.168.10.26:8080
+```
+
+Adresowanie IP jest statyczne, w ramach jednej podsieci.
+
+## 4. Awaria maszyny z menadżerem
+
+W przypadku awarii menadżera – nie przewidziano automatycznego odzyskiwania. W scenariuszach krytycznych zakłada się ręczną interwencję administratora, co wynika z charakteru projektu (akademicki proof-of-concept).
+
+
+# Test niezawodności
+
+Poniższy skrypt w Bashu realizuje ciągłe zapytania do serwisu, co 0.5 sekundy:
+
+```bash
+#!/bin/bash
+while true
+do
+    curl http://192.168.10.120/random/number --connect-timeout 1 --max-time 2 || true
+    echo ""
+    sleep 0.5
+done
+```
+
+Przykładowy wynik działania:
+
+```sh
+{"value":69}
+{"value":24}
+{"value":82}
+curl: (28) Operation timed out after 2001 milliseconds with 0 bytes received
+{"value":45}
+{"value":51}
+{"value":54}
+```
+Przygotowaliśmy prosty skrypt testowy, który co pół sekundy wysyła żądanie do naszego serwisu. W trakcie jego działania celowo wyłączamy najpierw maszynę bezstanową, a następnie maszynę z load balancerem. W obu przypadkach obserwujemy krótką przerwę w dostępności usługi, jednak system bardzo szybko odzyskuje pełną funkcjonalność dzięki mechanizmom wykrywania awarii i automatycznego przywracania instancji. Co istotne, po usunięciu flag `--connect-timeout` oraz `--max-time` z komendy `curl`, przerwa w działaniu serwisu staje się niezauważalna z punktu widzenia użytkownika końcowego — dłuższy czas oczekiwania na odpowiedź maskuje chwilową niedostępność usługi.
+
+
+# Narzędzia i środowisko
+
+## Sprzęt:
+
+* Dwa laptopy z systemem Ubuntu, połączone przewodem Ethernet.
+
+## Narzędzia:
+
+* **Wirtualizacja:** KVM
+* **Obraz systemu:** Alpine Linux – wersja Virtual
+* **Serwisy:** Aplikacje Spring napisane w Kotlinie
+* **Konfiguracja maszyn:** Ansible
+* **Skrypty testowe:** Bash
+
 # Konfiguracja
+
+## Automatyzacja – Skalowalność i Wysoka Dostępność
+
+### Konfiguracja serwisu bezstanowego (stateless)
+
+#### 1. Weryfikacja statusu maszyny wirtualnej
+
+Użyj agenta QEMU:
+
+```bash
+virsh qemu-agent-command default '{"execute":"guest-ping"}'
+# Oczekiwany wynik: {"return":{}}
+```
+
+
+#### 2. Sprawdzenie aktualnego adresu IP
+
+```shell
+$ virsh domifaddr default --source agent
+ Name       MAC address          Protocol     Address
+-------------------------------------------------------------------------------
+ lo         00:00:00:00:00:00    ipv4         127.0.0.1/8
+ -          -                    ipv6         ::1/128
+ eth0       52:54:00:40:ec:c3    ipv4         192.168.122.231/24
+ -          -                    ipv6         fe80::5054:ff:fe40:ecc3/64
+```
+
+
+#### 3. Nadanie statycznego adresu IP przez Ansible
+
+**Playbook Ansible: `playbooks/network.yaml`**
+
+```yaml
+- name: Configure network
+  hosts: "{{ current_ip }}"
+  become: yes
+  vars:
+    interface: eth0
+    ansible_become: false
+    ansible_user: root
+    ansible_ssh_pass: root
+
+  tasks:
+    - name: Configure static ip
+      template:
+        src: config/interfaces.j2
+        dest: /etc/network/interfaces
+      notify: Restart networking
+
+  handlers:
+    - name: Restart networking
+      command: /etc/init.d/networking restart
+      async: 1
+      poll: 0
+```
+
+**Szablon `interfaces.j2`:**
+
+```ini
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address {{ new_ip }}
+    netmask 255.255.255.0
+    gateway 192.168.122.1
+```
+
+**Uruchomienie playbooka:**
+
+```shell
+$ ansible-playbook -i 192.168.122.231, ./playbooks/network.yaml 
+  -e current_ip=192.168.122.231 -e new_ip=192.168.122.13
+
+PLAY [Configure network] *******************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [192.168.122.231]
+
+TASK [Configure static ip] *****************************************************
+changed: [192.168.122.231]
+
+RUNNING HANDLER [Restart networking] *******************************************
+changed: [192.168.122.231]
+
+PLAY RECAP *********************************************************************
+192.168.122.231            : ok=3    changed=2    unreachable=0    
+  failed=0    skipped=0    rescued=0    ignored=0
+```
+
+#### 4. Weryfikacja dostępności maszyny po zmianie IP
+
+```shell
+$ ping -c 1 192.168.122.13
+PING 192.168.122.13 (192.168.122.13) 56(84) bytes of data.
+64 bytes from 192.168.122.13: icmp_seq=1 ttl=64 time=1021 ms
+
+--- 192.168.122.13 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 1020.793/1020.793/1020.793/0.000 ms
+```
+
+
+#### 5. Uruchomienie serwisu Java jako daemon
+
+**Playbook Ansible: `playbooks/stateless.yaml`**
+
+```yaml
+- name: Configure stateless service
+  hosts: "{{ ip }}"
+  become: yes
+  vars:
+    interface: eth0
+    ansible_become: false
+    ansible_user: root
+    ansible_ssh_pass: root
+
+  tasks:
+    - name: Start stateless daemon
+      ansible.builtin.shell: |
+        nohup java -Dserver.forward-headers-strategy=framework 
+          -jar /stateless.jar --server.port={{ port }} > stateless.log 2>&1 &
+      async: 1
+      poll: 0
+```
+
+**Uruchomienie:**
+
+```shell
+$ ansible-playbook -i 192.168.122.13, ./playbooks/stateless.yaml -e ip=192.168.122.13 -e port=8080
+
+PLAY [Configure stateless service] *********************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [192.168.122.13]
+
+TASK [Start stateless daemon] **************************************************
+changed: [192.168.122.13]
+
+PLAY RECAP *********************************************************************
+192.168.122.13             : ok=2    changed=1    unreachable=0    
+  failed=0    skipped=0    rescued=0    ignored=0
+```
+
+
+## Load Balancer – Konfiguracja i Automatyzacja
+
+### Punkty 1–4
+
+Są identyczne jak w konfiguracji serwisu bezstanowego (ping VM, przypisanie IP przez Ansible, weryfikacja połączenia).
+
+
+### 5. Uruchomienie serwisu heartbeat na porcie 8080
+
+**Playbook Ansible: `playbooks/heart_beat.yaml`**
+
+```yaml
+- name: Configure heartbeat service
+  hosts: "{{ ip }}"
+  become: yes
+  vars:
+    interface: eth0
+    ansible_become: false
+    ansible_user: root
+    ansible_ssh_pass: root
+
+  tasks:
+    - name: Start heartbeat daemon
+      ansible.builtin.shell: |
+        nohup java -Dserver.forward-headers-strategy=framework 
+          -jar /heartbeat.jar --server.port={{ port }} > heartbeat.log 2>&1 &
+      async: 1
+      poll: 0
+```
+
+**Uruchomienie:**
+
+```shell
+$ ansible-playbook -i 192.168.122.12, ./playbooks/heart_beat.yaml -e ip=192.168.122.12 -e port=8080
+
+PLAY [Configure heartbeat service] *********************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [192.168.122.12]
+
+TASK [Start heartbeat daemon] **************************************************
+changed: [192.168.122.12]
+
+PLAY RECAP *********************************************************************
+192.168.122.12             : ok=2    changed=1    unreachable=0   
+ failed=0    skipped=0    rescued=0    ignored=0
+```
+
+### 6. Uruchomienie load balancera (NGINX) na porcie 80
+
+**Playbook Ansible: `playbooks/load_balancer.yaml`**
+
+```yaml
+- name: Configure load balancer service
+  hosts: "{{ ip }}"
+  become: yes
+  vars:
+    interface: eth0
+    ansible_become: false
+    ansible_user: root
+    ansible_ssh_pass: root
+
+  tasks:
+    - name: Copy nginx.conf to the server
+      copy:
+        src: config/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        backup: yes
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+```
+
+**Uruchomienie:**
+
+```shell
+$ ansible-playbook -i 192.168.122.12, ./playbooks/load_balancer.yaml -e ip=192.168.122.12
+
+PLAY [Configure load balancer service] *****************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [192.168.122.12]
+
+TASK [Copy nginx.conf to the server] *******************************************
+changed: [192.168.122.12]
+
+TASK [Reload Nginx] ************************************************************
+changed: [192.168.122.12]
+
+PLAY RECAP *********************************************************************
+192.168.122.12             : ok=3    changed=2    unreachable=0    
+  failed=0    skipped=0    rescued=0    ignored=0
+```
+
+\newpage
+
+## Dostępność i punkty końcowe
+
+### Swagger – Menadżer
+
+**Zarządzanie serwerami**:
+
+![Swagger z menadżera](./docs/img/manager.png)
+
+\newpage
+
+### Swagger – Stateless Service
+
+**Serwisy aplikacyjne**:
+
+![Swagger z serwisu bezstanowego](./docs/img/stateless.png)
+
+\newpage
+
+### Swagger – Load Balancer
+
+**Koordynacja i routowanie ruchu HTTP**:
+
+![Swagger z load balancera](./docs/img/load_balancer.png)
 
 ## KVM
 
@@ -444,7 +933,7 @@ Wirtualny przełącznik (ang. *bridge*) umożliwia łączenie różnych interfej
 
 ### Konfiguracja Netplanu – Serwer 1
 
-Plik konfiguracyjny `/etc/netplan/*.yaml` powinien zawierać następującą definicję:
+Plik konfiguracyjny `/etc/netplan/wso.yaml` powinien zawierać następującą definicję:
 
 ```yaml
 network:
@@ -568,494 +1057,3 @@ SPRING_PROFILES_ACTIVE=bk java -jar ./manager/build/libs/manager.jar
 ```bash
 SPRING_PROFILES_ACTIVE=mb java -jar ./manager/build/libs/manager.jar
 ```
-
-## Automatyzacja – Skalowalność i Wysoka Dostępność
-
-### Konfiguracja serwisu bezstanowego (stateless)
-
-#### 1. Weryfikacja statusu maszyny wirtualnej
-
-Użyj agenta QEMU:
-
-```bash
-virsh qemu-agent-command default '{"execute":"guest-ping"}'
-# Oczekiwany wynik: {"return":{}}
-```
-
-
-#### 2. Sprawdzenie aktualnego adresu IP
-
-```shell
-$ virsh domifaddr default --source agent
- Name       MAC address          Protocol     Address
--------------------------------------------------------------------------------
- lo         00:00:00:00:00:00    ipv4         127.0.0.1/8
- -          -                    ipv6         ::1/128
- eth0       52:54:00:40:ec:c3    ipv4         192.168.122.231/24
- -          -                    ipv6         fe80::5054:ff:fe40:ecc3/64
-```
-
-
-#### 3. Nadanie statycznego adresu IP przez Ansible
-
-**Playbook Ansible: `playbooks/network.yaml`**
-
-```yaml
-- name: Configure network
-  hosts: "{{ current_ip }}"
-  become: yes
-  vars:
-    interface: eth0
-    ansible_become: false
-    ansible_user: root
-    ansible_ssh_pass: root
-
-  tasks:
-    - name: Configure static ip
-      template:
-        src: config/interfaces.j2
-        dest: /etc/network/interfaces
-      notify: Restart networking
-
-  handlers:
-    - name: Restart networking
-      command: /etc/init.d/networking restart
-      async: 1
-      poll: 0
-```
-
-**Szablon `interfaces.j2`:**
-
-```ini
-auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet static
-    address {{ new_ip }}
-    netmask 255.255.255.0
-    gateway 192.168.122.1
-```
-
-**Uruchomienie playbooka:**
-
-```shell
-$ ansible-playbook -i 192.168.122.231, ./playbooks/network.yaml 
-  -e current_ip=192.168.122.231 -e new_ip=192.168.122.13
-
-PLAY [Configure network] *******************************************************
-
-TASK [Gathering Facts] *********************************************************
-ok: [192.168.122.231]
-
-TASK [Configure static ip] *****************************************************
-changed: [192.168.122.231]
-
-RUNNING HANDLER [Restart networking] *******************************************
-changed: [192.168.122.231]
-
-PLAY RECAP *********************************************************************
-192.168.122.231            : ok=3    changed=2    unreachable=0    
-  failed=0    skipped=0    rescued=0    ignored=0
-```
-
-#### 4. Weryfikacja dostępności maszyny po zmianie IP
-
-```shell
-$ ping -c 1 192.168.122.13
-PING 192.168.122.13 (192.168.122.13) 56(84) bytes of data.
-64 bytes from 192.168.122.13: icmp_seq=1 ttl=64 time=1021 ms
-
---- 192.168.122.13 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 1020.793/1020.793/1020.793/0.000 ms
-```
-
-
-#### 5. Uruchomienie serwisu Java jako daemon
-
-**Playbook Ansible: `playbooks/stateless.yaml`**
-
-```yaml
-- name: Configure stateless service
-  hosts: "{{ ip }}"
-  become: yes
-  vars:
-    interface: eth0
-    ansible_become: false
-    ansible_user: root
-    ansible_ssh_pass: root
-
-  tasks:
-    - name: Start stateless daemon
-      ansible.builtin.shell: |
-        nohup java -Dserver.forward-headers-strategy=framework 
-          -jar /stateless.jar --server.port={{ port }} > stateless.log 2>&1 &
-      async: 1
-      poll: 0
-```
-
-**Uruchomienie:**
-
-```shell
-$ ansible-playbook -i 192.168.122.13, ./playbooks/stateless.yaml -e ip=192.168.122.13 -e port=8080
-
-PLAY [Configure stateless service] *********************************************
-
-TASK [Gathering Facts] *********************************************************
-ok: [192.168.122.13]
-
-TASK [Start stateless daemon] **************************************************
-changed: [192.168.122.13]
-
-PLAY RECAP *********************************************************************
-192.168.122.13             : ok=2    changed=1    unreachable=0    
-  failed=0    skipped=0    rescued=0    ignored=0
-```
-
-
-## Load Balancer – Konfiguracja i Automatyzacja
-
-### Punkty 1–4
-
-Są identyczne jak w konfiguracji serwisu bezstanowego (ping VM, przypisanie IP przez Ansible, weryfikacja połączenia).
-
-
-### 5. Uruchomienie serwisu heartbeat na porcie 8080
-
-**Playbook Ansible: `playbooks/heart_beat.yaml`**
-
-```yaml
-- name: Configure heartbeat service
-  hosts: "{{ ip }}"
-  become: yes
-  vars:
-    interface: eth0
-    ansible_become: false
-    ansible_user: root
-    ansible_ssh_pass: root
-
-  tasks:
-    - name: Start heartbeat daemon
-      ansible.builtin.shell: |
-        nohup java -Dserver.forward-headers-strategy=framework 
-          -jar /heartbeat.jar --server.port={{ port }} > heartbeat.log 2>&1 &
-      async: 1
-      poll: 0
-```
-
-**Uruchomienie:**
-
-```shell
-$ ansible-playbook -i 192.168.122.12, ./playbooks/heart_beat.yaml -e ip=192.168.122.12 -e port=8080
-
-PLAY [Configure heartbeat service] *********************************************
-
-TASK [Gathering Facts] *********************************************************
-ok: [192.168.122.12]
-
-TASK [Start heartbeat daemon] **************************************************
-changed: [192.168.122.12]
-
-PLAY RECAP *********************************************************************
-192.168.122.12             : ok=2    changed=1    unreachable=0   
- failed=0    skipped=0    rescued=0    ignored=0
-```
-
-### 6. Uruchomienie load balancera (NGINX) na porcie 80
-
-**Playbook Ansible: `playbooks/load_balancer.yaml`**
-
-```yaml
-- name: Configure load balancer service
-  hosts: "{{ ip }}"
-  become: yes
-  vars:
-    interface: eth0
-    ansible_become: false
-    ansible_user: root
-    ansible_ssh_pass: root
-
-  tasks:
-    - name: Copy nginx.conf to the server
-      copy:
-        src: config/nginx.conf
-        dest: /etc/nginx/nginx.conf
-        backup: yes
-
-    - name: Reload Nginx
-      service:
-        name: nginx
-        state: reloaded
-```
-
-**Uruchomienie:**
-
-```shell
-$ ansible-playbook -i 192.168.122.12, ./playbooks/load_balancer.yaml -e ip=192.168.122.12
-
-PLAY [Configure load balancer service] *****************************************
-
-TASK [Gathering Facts] *********************************************************
-ok: [192.168.122.12]
-
-TASK [Copy nginx.conf to the server] *******************************************
-changed: [192.168.122.12]
-
-TASK [Reload Nginx] ************************************************************
-changed: [192.168.122.12]
-
-PLAY RECAP *********************************************************************
-192.168.122.12             : ok=3    changed=2    unreachable=0    
-  failed=0    skipped=0    rescued=0    ignored=0
-```
-
-\newpage
-
-## Dostępność i punkty końcowe
-
-### Swagger – Menadżer
-
-**Zarządzanie serwerami**:
-
-![Swagger z menadżera](./docs/img/manager.png)
-
-\newpage
-
-### Swagger – Stateless Service
-
-**Serwisy aplikacyjne**:
-
-![Swagger z serwisu bezstanowego](./docs/img/stateless.png)
-
-\newpage
-
-### Swagger – Load Balancer
-
-**Koordynacja i routowanie ruchu HTTP**:
-
-![Swagger z load balancera](./docs/img/load_balancer.png)
-
-Poniżej znajduje się poprawiona, profesjonalnie sformatowana wersja dokumentacji sekcji **Testowanie ryzyka** i **Test niezawodności**, z zachowaniem oryginalnych treści, uzupełniona o spójne opisy i styl techniczny:
-
-
-# Testowanie ryzyka
-
-## 1. Awaria maszyny z serwisem bezstanowym
-
-Menadżer przez cały czas monitoruje stan serwisów bezstanowych poprzez połączenia typu *heartbeat*. Serwis co jakiś czas przesyła odpowiedź w formacie:
-
-```json
-data: {"status": "OK"}
-```
-
-Brak odpowiedzi w określonym czasie powoduje ponowne próby połączenia. Jeśli po kilku próbach nie uda się nawiązać kontaktu, maszyna zostaje usunięta, a w jej miejsce automatycznie uruchamiana jest nowa instancja. Co ważne – nowa maszyna otrzymuje ten sam adres IP, co poprzednia.
-
-W przypadku błędnej odpowiedzi serwisu, Nginx jako *load balancer* automatycznie przekierowuje żądanie do innego działającego serwisu, zgodnie z konfiguracją `proxy_next_upstream`.
-
-### Etapy testu
-
-#### 1.1. Wymuszenie śmierci maszyny bezstanowej
-
-![Maszyna z serwisem bezstanowym umiera](./docs/img/kill_default.png){ width=50% }
-
-#### 1.2. Tymczasowy brak maszyny z serwisem bezstanowym
-
-![Chwilowy brak maszyny z serwisem bezstanowym](./docs/img/after_kill_default.png){ width=50% }
-
-#### 1.3. Obsługa zapytań przez inne serwisy
-
-![Pomimo braku jednej z maszyn, zapytania nadal są obsługiwane](./docs/img/request_on_kill_default.png)
-
-#### 1.4. Detekcja awarii i uruchomienie nowej instancji
-
-![Wykrycie braku i postawienie nowej maszyny z serwisem bezstanowym](./docs/img/new_default.png){ width=50% }
-
-Log z systemu:
-
-```sh
-2025-06-03T18:32:21.016+02:00  INFO 21744 --- [    parallel-11] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 0 for 
-  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
-2025-06-03T18:32:21.925+02:00  INFO 21744 --- [     parallel-1] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 1 for 
-  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
-2025-06-03T18:32:23.973+02:00  INFO 21744 --- [     parallel-3] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 2 for 
-  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
-2025-06-03T18:32:27.315+02:00  INFO 21744 --- [     parallel-5] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 3 for 
-  Stateless(name=default, address=Address(ip=192.168.10.26, port=8080))
-2025-06-03T18:32:27.318+02:00 ERROR 21744 --- [or-http-epoll-6] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Retries exhausted or other error occurred
-
-reactor.core.Exceptions$RetryExhaustedException: Retries exhausted: 4/4
-```
-
-Po czterech nieudanych próbach *heartbeat*, uruchamiana jest nowa maszyna.
-
-## 2. Awaria maszyny z load balancerem
-
-Mechanizm *heartbeat* działa również w przypadku load balancera. W systemie dostępny jest jeden publiczny adres IP przypisany do menadżera głównego. Jeśli wykryta zostanie awaria maszyny z LB, menadżer przekazuje adres IP kolejnemu w kolejce i wyłącza uszkodzoną instancję.
-
-### Etapy testu
-
-#### 2.1. Wymuszenie śmierci maszyny z LB
-
-![Maszyna z load balancerem umiera](./docs/img/kill_lb.png){ width=50% }
-
-#### 2.2. Tymczasowy brak LB
-
-![Chwilowy brak maszyny z load balancerem](./docs/img/after_kill_lb.png){ width=50% }
-
-W systemie wykonywana jest rekonfiguracja:
-
-```sh
-2025-06-03T18:46:25.042+02:00  INFO 21744 --- [or-http-epoll-5] p.e.p.i.m.i.util.CommandLineExtension    :
-> ansible-playbook -i 192.168.10.25, ./playbooks/network.yaml 
-  -e current_ip=192.168.10.25 -e new_ip=192.168.10.120
-
-PLAY [Configure network] ************************************
-
-TASK [Gathering Facts] **************************************
-ok: [192.168.10.25]
-
-TASK [Configure static ip] **********************************
-changed: [192.168.10.25]
-
-RUNNING HANDLER [Restart networking] ************************
-changed: [192.168.10.25]
-
-PLAY RECAP **************************************************
-192.168.10.25              : ok=3    changed=2    unreachable=0    
-  failed=0    skipped=0    rescued=0    ignored=0
-```
-
-#### 2.3. Detekcja awarii i start nowej instancji LB
-
-![Wykrycie braku i postawienie nowej maszyny z load balancerem](./docs/img/new_lb.png){ width=50% }
-
-Log z systemu:
-
-```sh
-2025-06-03T18:46:02.429+02:00  INFO 18787 --- [or-http-epoll-9] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Received heart beat from 
-  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
-  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
-  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)]): 
-  HeartBeat(status=OK)
-2025-06-03T18:46:03.129+02:00  INFO 18787 --- [or-http-epoll-6] p.e.p.i.m.i.\
-  VmLifecycleHandlerImpl       : Received heart beat from 
-  Stateless(name=default, address=Address(ip=192.168.10.16, port=8080)): HeartBeat(status=OK)
-...
-2025-06-03T18:46:07.987+02:00  INFO 18787 --- [     parallel-3] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 1 for 
-  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
-  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
-  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)])
-...
-2025-06-03T18:46:18.153+02:00  INFO 18787 --- [     parallel-9] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Heart beat retry 3 for 
-  LoadBalancer(name=load-balancer, address=Address(ip=192.168.10.120, port=8080), 
-  workers=[Address(ip=192.168.10.16, port=8080), Address(ip=192.168.10.15, port=8080), 
-  Address(ip=192.168.10.26, port=8080), Address(ip=192.168.10.24, port=8080)])
-...
-2025-06-03T18:46:20.154+02:00 ERROR 18787 --- [     parallel-7] p.e.p.i.m.i.
-  VmLifecycleHandlerImpl       : Retries exhausted or other error occurred
-
-reactor.core.Exceptions$RetryExhaustedException: Retries exhausted: 4/4
-```
-
-System cyklicznie wysyła zapytania heartbeat do maszyny z load balancerem. Po czterech nieudanych próbach nawiązania połączenia, instancja zostaje uznana za niedostępną, a jej proces zostaje zakończony. W jej miejsce automatycznie uruchamiana jest nowa maszyna z load balancerem, tym razem oznaczona jako *secondary*. Proces ten gwarantuje zachowanie ciągłości działania klastra oraz natychmiastowe przywrócenie dostępu do usług publicznych.
-
-
-## 3. Kolizja adresów IP
-
-Każdy menadżer ma przypisaną własną, unikalną pulę adresów IP. Dzięki temu nie dochodzi do kolizji między zarządzanymi przez nich maszynami.
-
-### Konfiguracja menadżera 1:
-
-```yml
-application:
-  manager-address: http://192.168.10.1:8080
-  managers:
-    - http://192.168.10.2:8080
-  public-address: http://192.168.10.120:8080
-  master: true
-  available-addresses:
-    - http://192.168.10.10:8080
-    - http://192.168.10.11:8080
-    - http://192.168.10.12:8080
-    - http://192.168.10.13:8080
-    - http://192.168.10.14:8080
-    - http://192.168.10.15:8080
-    - http://192.168.10.16:8080
-```
-
-### Konfiguracja menadżera 2:
-
-```yml
-application:
-  manager-address: http://192.168.10.2:8080
-  managers:
-    - http://192.168.10.1:8080
-  public-address: http://192.168.10.120:8080
-  master: false
-  available-addresses:
-    - http://192.168.10.20:8080
-    - http://192.168.10.21:8080
-    - http://192.168.10.22:8080
-    - http://192.168.10.23:8080
-    - http://192.168.10.24:8080
-    - http://192.168.10.25:8080
-    - http://192.168.10.26:8080
-```
-
-Adresowanie IP jest statyczne, w ramach jednej podsieci.
-
-## 4. Awaria maszyny z menadżerem
-
-W przypadku awarii menadżera – nie przewidziano automatycznego odzyskiwania. W scenariuszach krytycznych zakłada się ręczną interwencję administratora, co wynika z charakteru projektu (akademicki proof-of-concept).
-
-
-# Test niezawodności
-
-Poniższy skrypt w Bashu realizuje ciągłe zapytania do serwisu, co 0.5 sekundy:
-
-```bash
-#!/bin/bash
-while true
-do
-    curl http://192.168.10.120/random/number --connect-timeout 1 --max-time 2 || true
-    echo ""
-    sleep 0.5
-done
-```
-
-Przykładowy wynik działania:
-
-```sh
-{"value":69}
-{"value":24}
-{"value":82}
-curl: (28) Operation timed out after 2001 milliseconds with 0 bytes received
-{"value":45}
-{"value":51}
-{"value":54}
-```
-Przygotowaliśmy prosty skrypt testowy, który co pół sekundy wysyła żądanie do naszego serwisu. W trakcie jego działania celowo wyłączamy najpierw maszynę bezstanową, a następnie maszynę z load balancerem. W obu przypadkach obserwujemy krótką przerwę w dostępności usługi, jednak system bardzo szybko odzyskuje pełną funkcjonalność dzięki mechanizmom wykrywania awarii i automatycznego przywracania instancji. Co istotne, po usunięciu flag `--connect-timeout` oraz `--max-time` z komendy `curl`, przerwa w działaniu serwisu staje się niezauważalna z punktu widzenia użytkownika końcowego — dłuższy czas oczekiwania na odpowiedź maskuje chwilową niedostępność usługi.
-
-
-# Narzędzia i środowisko
-
-### Sprzęt:
-
-* Dwa laptopy z systemem Ubuntu, połączone przewodem Ethernet.
-
-### Narzędzia:
-
-* **Wirtualizacja:** KVM
-* **Obraz systemu:** Alpine Linux – wersja Virtual
-* **Serwisy:** Aplikacje Spring napisane w Kotlinie
-* **Konfiguracja maszyn:** Ansible
-* **Skrypty testowe:** Bash
